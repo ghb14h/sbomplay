@@ -10,11 +10,21 @@ class SBOMPlayApp {
         // Initialize services
         this.osvService = new OSVService();
         this.licenseProcessor = new LicenseProcessor();
+        this.ecosystemsService = new EcosystemsService();
+        
+        // Initialize author analyzer
+        this.depsDevService = new DepsDevService();
+        this.authorAnalyzer = new AuthorAnalyzer(
+            this.ecosystemsService,
+            this.depsDevService,
+            this.storageManager
+        );
         
         // Make services available globally
         window.osvService = this.osvService;
         window.licenseProcessor = this.licenseProcessor;
         window.storageManager = this.storageManager;
+        window.viewManager = new ViewManager();
         
         this.isAnalyzing = false;
         this.rateLimitTimer = null;
@@ -259,36 +269,81 @@ class SBOMPlayApp {
         const resetDate = new Date(resetTime * 1000);
         const resetTimeStr = resetDate.toLocaleTimeString();
         
+        // Create or update prominent rate limit banner at top of page
+        let rateLimitBanner = document.getElementById('rateLimitBanner');
+        if (!rateLimitBanner) {
+            rateLimitBanner = document.createElement('div');
+            rateLimitBanner.id = 'rateLimitBanner';
+            rateLimitBanner.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+            rateLimitBanner.style.zIndex = '9999';
+            rateLimitBanner.style.maxWidth = '600px';
+            rateLimitBanner.style.width = '90%';
+            rateLimitBanner.style.backgroundColor = '#856404';
+            rateLimitBanner.style.color = '#fff3cd';
+            rateLimitBanner.style.border = '2px solid #ffc107';
+            rateLimitBanner.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
+            rateLimitBanner.style.borderRadius = '8px';
+            document.body.appendChild(rateLimitBanner);
+        }
+        
+        rateLimitBanner.innerHTML = `
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            <h5 class="alert-heading" style="color: #fff3cd; margin-bottom: 10px;"><i class="fas fa-clock me-2"></i>GitHub API Rate Limit Exceeded</h5>
+            <p class="mb-2" style="color: #fff3cd;">The GitHub API rate limit has been reached. The analysis will automatically continue when the limit resets.</p>
+            <hr style="border-color: rgba(255, 243, 205, 0.3);">
+            <p class="mb-1" style="color: #fff3cd;"><strong>Reset Time:</strong> ${resetTimeStr}</p>
+            <p class="mb-0" style="color: #fff3cd;"><strong>Time Remaining:</strong> <span id="rateLimitCountdown">${this.formatTime(waitTime)}</span></p>
+            <small class="d-block mt-2" style="color: #ffc107;">
+                <i class="fas fa-info-circle me-1"></i>
+                Tip: Add a GitHub Personal Access Token in <a href="settings.html" style="color: #ffc107; text-decoration: underline;">Settings</a> to increase your rate limit from 60 to 5,000 requests/hour.
+            </small>
+        `;
+        
         // Update progress section
         const progressSection = document.getElementById('progressSection');
         const progressText = document.getElementById('progressText');
         
-        progressSection.style.display = 'block';
-        progressText.innerHTML = `
-            <div class="alert alert-warning">
-                <h6><i class="fas fa-clock me-2"></i>Rate Limit Exceeded</h6>
-                <p class="mb-2">GitHub API rate limit has been reached. Waiting for reset...</p>
-                <p class="mb-0"><strong>Reset Time:</strong> ${resetTimeStr}</p>
-                <p class="mb-0"><strong>Time Remaining:</strong> <span id="rateLimitCountdown">${this.formatTime(waitTime)}</span></p>
-            </div>
-        `;
+        if (progressSection) {
+            progressSection.style.display = 'block';
+            progressText.innerHTML = `
+                <div class="alert alert-warning mb-0">
+                    <h6><i class="fas fa-clock me-2"></i>Waiting for Rate Limit Reset</h6>
+                    <p class="mb-0">Analysis will continue in <span id="progressRateLimitCountdown">${this.formatTime(waitTime)}</span></p>
+                </div>
+            `;
+        }
         
         // Start countdown timer
         this.startRateLimitCountdown(waitTime);
         
         // Disable analyze button
-        document.getElementById('analyzeBtn').disabled = true;
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+        }
     }
 
     /**
      * Hide rate limit waiting message
      */
     hideRateLimitWaiting() {
+        // Remove rate limit banner
+        const rateLimitBanner = document.getElementById('rateLimitBanner');
+        if (rateLimitBanner) {
+            rateLimitBanner.remove();
+        }
+        
+        // Update progress text
         const progressText = document.getElementById('progressText');
-        progressText.textContent = 'Rate limit reset. Continuing analysis...';
+        if (progressText) {
+            progressText.textContent = 'Rate limit reset. Continuing analysis...';
+        }
         
         // Re-enable analyze button
-        document.getElementById('analyzeBtn').disabled = false;
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+        }
         
         // Clear countdown timer
         if (this.rateLimitTimer) {
@@ -300,20 +355,29 @@ class SBOMPlayApp {
     /**
      * Start countdown timer for rate limit
      */
-    startRateLimitCountdown(seconds) {
+    startRateLimitCountdown(waitTime) {
         if (this.rateLimitTimer) {
             clearInterval(this.rateLimitTimer);
         }
         
+        let remaining = waitTime;
         this.rateLimitTimer = setInterval(() => {
-            const countdownElement = document.getElementById('rateLimitCountdown');
-            if (countdownElement) {
-                countdownElement.textContent = this.formatTime(seconds);
+            remaining--;
+            const formattedTime = this.formatTime(remaining);
+            
+            // Update main countdown in banner
+            const countdown = document.getElementById('rateLimitCountdown');
+            if (countdown) {
+                countdown.textContent = formattedTime;
             }
             
-            seconds--;
+            // Update progress countdown if visible
+            const progressCountdown = document.getElementById('progressRateLimitCountdown');
+            if (progressCountdown) {
+                progressCountdown.textContent = formattedTime;
+            }
             
-            if (seconds <= 0) {
+            if (remaining <= 0) {
                 clearInterval(this.rateLimitTimer);
                 this.rateLimitTimer = null;
             }
@@ -321,12 +385,15 @@ class SBOMPlayApp {
     }
 
     /**
-     * Format time in MM:SS
+     * Format time in seconds to human readable string
      */
     formatTime(seconds) {
+        if (seconds < 60) {
+            return `${seconds} second${seconds !== 1 ? 's' : ''}`;
+        }
         const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        const secs = seconds % 60;
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ${secs} second${secs !== 1 ? 's' : ''}`;
     }
 
     /**
@@ -665,6 +732,45 @@ class SBOMPlayApp {
                 this.showDepsDevSummary();
             }
             
+            // Phase 5: Author Analysis (95-100%)
+            if (totalDependencies > 0) {
+                try {
+                    this.updateProgress(95, '5/5 Analyzing package authors...');
+                    console.log('👤 Starting author analysis...');
+                    
+                    // Prepare dependencies array with ecosystem information
+                    const dependenciesArray = Array.from(this.sbomProcessor.dependencies.values()).map(dep => ({
+                        name: dep.name,
+                        version: dep.version,
+                        ecosystem: dep.category?.ecosystem || 'Unknown',
+                        isDirect: true, // From SBOM, these are direct dependencies
+                        author: dep.author,
+                        authorDisplayName: dep.authorDisplayName,
+                        authorEmail: dep.authorEmail,
+                        homepage: dep.homepage
+                    }));
+                    
+                    // Run author analysis
+                    const authorData = await this.authorAnalyzer.analyzeAuthors(
+                        dependenciesArray,
+                        this.sbomProcessor.depsDevAnalysis, // Transitive data
+                        ownerName
+                    );
+                    
+                    console.log(`✅ Author analysis complete: ${authorData.length} unique authors found`);
+                    
+                    // Show author analysis section and render data
+                    const authorSection = document.getElementById('authorAnalysisSection');
+                    if (authorSection && window.viewManager) {
+                        authorSection.classList.remove('hidden');
+                        window.viewManager.renderAuthorAnalysis(authorData, 'author-analysis-container');
+                    }
+                } catch (error) {
+                    console.error('❌ Author analysis failed:', error);
+                    // Don't fail the entire analysis if author analysis fails
+                }
+            }
+            
             // Show message about partial data availability
             if (repositories.length > 10) {
                 this.showAlert(
@@ -746,7 +852,7 @@ class SBOMPlayApp {
         
         // Get storage info to show all organizations
         const storageInfo = this.storageManager.getStorageInfo();
-        const organizations = storageInfo.organizations;
+        const organizations = storageInfo?.organizations || [];
         
         // Get combined stats if multiple organizations exist
         const combinedData = organizations.length > 1 ? this.storageManager.getCombinedData() : null;

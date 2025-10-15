@@ -5,7 +5,7 @@
 class StorageManager {
     constructor() {
         this.dbName = 'SBOMPlayDB';
-        this.dbVersion = 1;
+        this.dbVersion = 3; // Incremented for single repo analyses store
         this.db = null;
         this.maxHistoryEntries = 100; // Increased from 20 since IndexedDB has no strict limit
         this.maxOrganizations = 50; // Increased from 10
@@ -15,7 +15,9 @@ class StorageManager {
             organizations: 'organizations',
             history: 'history',
             vulnerabilities: 'vulnerabilities',
-            settings: 'settings'
+            settings: 'settings',
+            authorAnalysis: 'authorAnalysis', // Author analysis data
+            singleRepoAnalyses: 'singleRepoAnalyses' // Single repository analyses
         };
     }
 
@@ -66,6 +68,21 @@ class StorageManager {
                 // Settings store
                 if (!db.objectStoreNames.contains(this.stores.settings)) {
                     db.createObjectStore(this.stores.settings, { keyPath: 'key' });
+                }
+
+                // Author Analysis store
+                if (!db.objectStoreNames.contains(this.stores.authorAnalysis)) {
+                    const authorStore = db.createObjectStore(this.stores.authorAnalysis, { keyPath: 'contextId' });
+                    authorStore.createIndex('timestamp', 'timestamp', { unique: false });
+                }
+
+                // Single Repository Analyses store
+                if (!db.objectStoreNames.contains(this.stores.singleRepoAnalyses)) {
+                    const singleRepoStore = db.createObjectStore(this.stores.singleRepoAnalyses, { 
+                        keyPath: 'repoKey' // Format: "owner/name"
+                    });
+                    singleRepoStore.createIndex('owner', 'owner', { unique: false });
+                    singleRepoStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
 
                 console.log('🔧 IndexedDB schema created');
@@ -761,8 +778,9 @@ class StorageManager {
             const allData = [];
             for (const org of organizations) {
                 const orgData = await this.getFullOrganizationData(org.organization);
-                if (orgData && orgData.data) {
-                    allData.push(orgData);
+                if (orgData) {
+                    // Wrap orgData in data property for combineOrganizationData
+                    allData.push({ data: orgData });
                 }
             }
 
@@ -770,7 +788,9 @@ class StorageManager {
                 return null;
             }
 
-            return this.combineOrganizationData(allData);
+            const combined = this.combineOrganizationData(allData);
+            // Wrap in data property to match dashboard expectations
+            return { data: combined };
         } catch (error) {
             console.error('❌ Failed to get combined data:', error);
             return null;
@@ -910,6 +930,38 @@ class StorageManager {
     }
 
     /**
+     * Check data size and warn if storage is getting full
+     */
+    async checkDataSizeAndWarn(contextName = 'analysis') {
+        try {
+            const info = await this.getStorageInfo();
+            const usagePercent = info.usage && info.quota 
+                ? (info.usage / info.quota * 100)
+                : 0;
+            
+            if (usagePercent > 90) {
+                console.warn(`⚠️ Storage ${usagePercent.toFixed(1)}% full for ${contextName}`);
+                return {
+                    warning: true,
+                    usage: info.usage,
+                    quota: info.quota,
+                    percentUsed: usagePercent.toFixed(1),
+                    message: `Storage is ${usagePercent.toFixed(1)}% full. Consider clearing old data.`
+                };
+            }
+            
+            if (usagePercent > 75) {
+                console.log(`ℹ️ Storage ${usagePercent.toFixed(1)}% used for ${contextName}`);
+            }
+            
+            return { warning: false, percentUsed: usagePercent.toFixed(1) };
+        } catch (error) {
+            console.error('Error checking storage size:', error);
+            return { warning: false, error: error.message };
+        }
+    }
+
+    /**
      * Show storage status
      */
     async showStorageStatus() {
@@ -955,6 +1007,301 @@ class StorageManager {
             console.log('✅ Migration from localStorage to IndexedDB complete!');
         } catch (error) {
             console.error('❌ Failed to migrate from localStorage:', error);
+        }
+    }
+
+    /**
+     * Save author analysis data
+     * @param {string} contextId - Organization or repository name
+     * @param {Array} authorData - Array of author analysis data
+     */
+    async saveAuthorAnalysis(contextId, authorData) {
+        try {
+            await this.init();
+            
+            const transaction = this.getTransaction(this.stores.authorAnalysis, 'readwrite');
+            const store = transaction.objectStore(this.stores.authorAnalysis);
+            
+            const data = {
+                contextId: contextId,
+                timestamp: new Date().toISOString(),
+                authors: authorData
+            };
+            
+            const request = store.put(data);
+            
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    console.log(`✅ Author analysis saved for ${contextId}`);
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to save author analysis for ${contextId}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error(`❌ Error saving author analysis for ${contextId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load author analysis data
+     * @param {string} contextId - Organization or repository name
+     * @returns {Promise<Array|null>} Author analysis data or null if not found
+     */
+    async loadAuthorAnalysis(contextId) {
+        try {
+            await this.init();
+            
+            const transaction = this.getTransaction(this.stores.authorAnalysis, 'readonly');
+            const store = transaction.objectStore(this.stores.authorAnalysis);
+            const request = store.get(contextId);
+            
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    if (request.result) {
+                        console.log(`✅ Author analysis loaded for ${contextId}`);
+                        resolve(request.result.authors);
+                    } else {
+                        console.log(`ℹ️ No author analysis found for ${contextId}`);
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to load author analysis for ${contextId}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error(`❌ Error loading author analysis for ${contextId}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Clear author analysis for a specific context
+     * @param {string} contextId - Organization or repository name
+     */
+    async clearAuthorAnalysis(contextId) {
+        try {
+            await this.init();
+            
+            const transaction = this.getTransaction(this.stores.authorAnalysis, 'readwrite');
+            const store = transaction.objectStore(this.stores.authorAnalysis);
+            const request = store.delete(contextId);
+            
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    console.log(`✅ Author analysis cleared for ${contextId}`);
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to clear author analysis for ${contextId}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error(`❌ Error clearing author analysis for ${contextId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get all stored author analyses
+     * @returns {Promise<Array>} Array of all author analysis entries
+     */
+    async getAllAuthorAnalyses() {
+        try {
+            await this.init();
+            
+            const transaction = this.getTransaction(this.stores.authorAnalysis, 'readonly');
+            const store = transaction.objectStore(this.stores.authorAnalysis);
+            const request = store.getAll();
+            
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    resolve(request.result || []);
+                };
+                request.onerror = () => {
+                    console.error('❌ Failed to get all author analyses:', request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error getting all author analyses:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Save single repository analysis
+     * @param {string} owner - Repository owner
+     * @param {string} name - Repository name
+     * @param {Object} analysisData - Analysis data to save
+     */
+    async saveSingleRepoAnalysis(owner, name, analysisData) {
+        try {
+            await this.init();
+            const repoKey = `${owner}/${name}`;
+            const timestamp = new Date().toISOString();
+            
+            const dataToStore = {
+                repoKey,
+                owner,
+                name,
+                timestamp,
+                ...analysisData
+            };
+
+            return new Promise((resolve, reject) => {
+                const transaction = this.getTransaction(this.stores.singleRepoAnalyses, 'readwrite');
+                const store = transaction.objectStore(this.stores.singleRepoAnalyses);
+                const request = store.put(dataToStore);
+
+                request.onsuccess = () => {
+                    console.log(`✅ Saved single repo analysis for ${repoKey}`);
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to save single repo analysis for ${repoKey}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error saving single repo analysis:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load single repository analysis
+     * @param {string} owner - Repository owner
+     * @param {string} name - Repository name
+     * @returns {Promise<Object|null>} Analysis data or null if not found
+     */
+    async loadSingleRepoAnalysis(owner, name) {
+        try {
+            await this.init();
+            const repoKey = `${owner}/${name}`;
+
+            return new Promise((resolve, reject) => {
+                const transaction = this.getTransaction(this.stores.singleRepoAnalyses, 'readonly');
+                const store = transaction.objectStore(this.stores.singleRepoAnalyses);
+                const request = store.get(repoKey);
+
+                request.onsuccess = () => {
+                    if (request.result) {
+                        console.log(`✅ Loaded single repo analysis for ${repoKey}`);
+                        resolve(request.result);
+                    } else {
+                        console.log(`ℹ️ No analysis found for ${repoKey}`);
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to load single repo analysis for ${repoKey}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error loading single repo analysis:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get all single repository analyses
+     * @returns {Promise<Array>} Array of all single repo analyses
+     */
+    async getAllSingleRepoAnalyses() {
+        try {
+            await this.init();
+
+            return new Promise((resolve, reject) => {
+                const transaction = this.getTransaction(this.stores.singleRepoAnalyses, 'readonly');
+                const store = transaction.objectStore(this.stores.singleRepoAnalyses);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    const analyses = request.result || [];
+                    // Sort by timestamp (newest first)
+                    analyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    console.log(`✅ Retrieved ${analyses.length} single repo analyses`);
+                    resolve(analyses);
+                };
+                request.onerror = () => {
+                    console.error('❌ Failed to get all single repo analyses:', request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error getting all single repo analyses:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Delete single repository analysis
+     * @param {string} owner - Repository owner
+     * @param {string} name - Repository name
+     */
+    async deleteSingleRepoAnalysis(owner, name) {
+        try {
+            await this.init();
+            const repoKey = `${owner}/${name}`;
+
+            return new Promise((resolve, reject) => {
+                const transaction = this.getTransaction(this.stores.singleRepoAnalyses, 'readwrite');
+                const store = transaction.objectStore(this.stores.singleRepoAnalyses);
+                const request = store.delete(repoKey);
+
+                request.onsuccess = () => {
+                    console.log(`✅ Deleted single repo analysis for ${repoKey}`);
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to delete single repo analysis for ${repoKey}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error deleting single repo analysis:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get single repo analyses for a specific owner
+     * @param {string} owner - Repository owner
+     * @returns {Promise<Array>} Array of analyses for the owner
+     */
+    async getSingleRepoAnalysesForOwner(owner) {
+        try {
+            await this.init();
+
+            return new Promise((resolve, reject) => {
+                const transaction = this.getTransaction(this.stores.singleRepoAnalyses, 'readonly');
+                const store = transaction.objectStore(this.stores.singleRepoAnalyses);
+                const index = store.index('owner');
+                const request = index.getAll(owner);
+
+                request.onsuccess = () => {
+                    const analyses = request.result || [];
+                    // Sort by timestamp (newest first)
+                    analyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    console.log(`✅ Retrieved ${analyses.length} single repo analyses for ${owner}`);
+                    resolve(analyses);
+                };
+                request.onerror = () => {
+                    console.error(`❌ Failed to get single repo analyses for ${owner}:`, request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error getting single repo analyses for owner:', error);
+            return [];
         }
     }
 }

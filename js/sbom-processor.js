@@ -99,6 +99,63 @@ class SBOMProcessor {
     }
 
     /**
+     * Extract author information from SBOM package metadata
+     * @param {Object} pkg - SBOM package object
+     * @returns {Object} Author information {author, displayName, email, homepage}
+     */
+    extractAuthorFromSBOM(pkg) {
+        const authorInfo = {
+            author: null,
+            displayName: null,
+            email: null,
+            homepage: null
+        };
+
+        // Try to extract from SPDX supplier field
+        if (pkg.supplier) {
+            // Format: "Organization: CompanyName" or "Person: PersonName (email@example.com)"
+            const supplierMatch = pkg.supplier.match(/^(Organization|Person):\s*(.+?)(?:\s*\(([^)]+)\))?$/);
+            if (supplierMatch) {
+                authorInfo.author = supplierMatch[2].trim();
+                authorInfo.displayName = supplierMatch[2].trim();
+                if (supplierMatch[3]) {
+                    authorInfo.email = supplierMatch[3].trim();
+                }
+            }
+        }
+
+        // Try originator field (fallback)
+        if (!authorInfo.author && pkg.originator) {
+            const originatorMatch = pkg.originator.match(/^(Organization|Person):\s*(.+?)(?:\s*\(([^)]+)\))?$/);
+            if (originatorMatch) {
+                authorInfo.author = originatorMatch[2].trim();
+                authorInfo.displayName = originatorMatch[2].trim();
+                if (originatorMatch[3]) {
+                    authorInfo.email = originatorMatch[3].trim();
+                }
+            }
+        }
+
+        // Try to extract homepage from externalRefs
+        if (pkg.externalRefs) {
+            const homepageRef = pkg.externalRefs.find(ref => 
+                ref.referenceCategory === 'OTHER' && 
+                (ref.referenceType === 'website' || ref.referenceType === 'vcs')
+            );
+            if (homepageRef) {
+                authorInfo.homepage = homepageRef.referenceLocator;
+            }
+        }
+
+        // Log if we found author info
+        if (authorInfo.author) {
+            console.log(`  👤 Found author in SBOM: ${authorInfo.author} for ${pkg.name}`);
+        }
+
+        return authorInfo;
+    }
+
+    /**
      * Process SBOM data from a repository
      */
     processSBOM(owner, repo, sbomData) {
@@ -167,6 +224,9 @@ class SBOMProcessor {
                 
                 // Track global dependency usage
                 if (!this.dependencies.has(depKey)) {
+                    // Extract author metadata from SBOM if available
+                    const authorInfo = this.extractAuthorFromSBOM(pkg);
+                    
                     this.dependencies.set(depKey, {
                         name: pkg.name,
                         version: version,
@@ -174,7 +234,12 @@ class SBOMProcessor {
                         count: 0,
                         category: category,
                         languages: new Set([category.language]),
-                        originalPackage: pkg  // Store original package data for PURL extraction
+                        originalPackage: pkg,  // Store original package data for PURL extraction
+                        // Author information
+                        author: authorInfo.author,
+                        authorDisplayName: authorInfo.displayName,
+                        authorEmail: authorInfo.email,
+                        homepage: authorInfo.homepage
                     });
                 }
                 

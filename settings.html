@@ -19,18 +19,24 @@
             <a class="navbar-brand" href="index.html">
                 <i class="fas fa-cubes me-2"></i>SBOM Play
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="index.html">Analysis</a>
-                <a class="nav-link" href="stats.html">Stats</a>
-                <a class="nav-link" href="license-compliance.html">License</a>
-                <a class="nav-link" href="vuln.html">Vulnerabilities</a>
-                <a class="nav-link" href="deps.html">Dependencies</a>
-                <a class="nav-link active" href="settings.html">
-                    <i class="fas fa-cog"></i>
-                </a>
-                <button id="theme-toggle" class="btn btn-sm ms-2" onclick="toggleTheme()" title="Toggle theme">
-                    <i class="fas fa-moon"></i>
-                </button>
+            <button id="theme-toggle" class="btn btn-sm ms-auto" onclick="toggleTheme()" title="Toggle theme">
+                <i class="fas fa-moon"></i>
+            </button>
+            <button class="navbar-toggler ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-lg-auto">
+                    <a class="nav-link" href="index.html">Organization Analysis</a>
+                    <a class="nav-link" href="singlerepo.html">Single Repository</a>
+                    <a class="nav-link" href="stats.html">Stats</a>
+                    <a class="nav-link" href="license-compliance.html">License</a>
+                    <a class="nav-link" href="vuln.html">Vulnerabilities</a>
+                    <a class="nav-link" href="deps.html">Dependencies</a>
+                    <a class="nav-link active" href="settings.html">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
@@ -295,11 +301,21 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Utilities -->
+    <script src="js/utils.js"></script>
+    
+    <!-- Core Services -->
     <script src="js/github-client.js"></script>
     <script src="js/sbom-processor.js"></script>
     <script src="js/license-processor.js"></script>
     <script src="js/osv-service.js"></script>
+    <script src="js/services/deps-dev-service.js"></script>
+    <script src="js/services/ecosystems-service.js"></script>
+    
+    <!-- Storage & Analysis -->
     <script src="js/storage-manager.js"></script>
+    <script src="js/author-analyzer.js"></script>
     <script src="js/view-manager.js"></script>
     <script src="js/app.js"></script>
     <script src="js/settings.js"></script>

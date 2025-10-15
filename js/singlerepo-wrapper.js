@@ -8,6 +8,7 @@ class SingleRepoAnalyzer {
         this.sbomProcessor = new SBOMProcessor();
         this.osvService = new OSVService();
         this.licenseProcessor = new LicenseProcessor();
+        this.storageManager = new StorageManager();
         this.depsDevService = null; // Initialize when needed
         this.githubActionsService = new GitHubActionsService(this.githubClient); // Pass GitHub client for token access
         
@@ -36,11 +37,27 @@ class SingleRepoAnalyzer {
             // Setup event listeners
             this.setupEventListeners();
             
+            // Setup rate limit event listeners
+            this.setupRateLimitListeners();
+            
             console.log('✅ SingleRepo Analyzer: Initialization complete');
         } catch (error) {
             console.error('❌ SingleRepo Analyzer: Initialization failed:', error);
             this.showAlert('Failed to initialize storage. Some features may not work properly.', 'warning');
         }
+    }
+
+    /**
+     * Setup rate limit event listeners
+     */
+    setupRateLimitListeners() {
+        this.githubClient.addEventListener('rateLimitExceeded', (event) => {
+            this.showRateLimitWaiting(event.detail.waitTime, event.detail.resetTime);
+        });
+
+        this.githubClient.addEventListener('rateLimitReset', () => {
+            this.hideRateLimitWaiting();
+        });
     }
 
     /**
@@ -263,9 +280,9 @@ class SingleRepoAnalyzer {
                 timestamp: new Date().toISOString()
             };
 
-            // TODO: Save to unified StorageManager
-            // await storageManager.saveSingleRepoAnalysis(owner, name, analysisData);
-            console.log('✅ Analysis complete (storage integration pending)');
+            // Save to IndexedDB
+            await this.storageManager.saveSingleRepoAnalysis(owner, name, analysisData);
+            console.log('✅ Analysis complete and saved to IndexedDB');
             
             this.currentAnalysis = analysisData;
             this.updateProgress(100, 'Analysis complete!');
@@ -366,6 +383,7 @@ class SingleRepoAnalyzer {
         `;
         
         repoInfoContent.innerHTML = html;
+        repoInfoSection.classList.remove('hidden');
         repoInfoSection.style.display = 'block';
     }
 
@@ -1696,9 +1714,9 @@ class SingleRepoAnalyzer {
             // Re-display the results
             this.displayVulnerabilityAnalysis(this.currentAnalysis);
             
-            // TODO: Save updated analysis to unified StorageManager
-            // const { owner, name } = this.currentAnalysis.repository;
-            // await storageManager.saveSingleRepoAnalysis(owner, name, this.currentAnalysis);
+            // Save updated analysis to IndexedDB
+            const { owner, name } = this.currentAnalysis.repository;
+            await this.storageManager.saveSingleRepoAnalysis(owner, name, this.currentAnalysis);
             
             this.showAlert('Vulnerability analysis updated successfully!', 'success');
         } catch (error) {
@@ -1755,9 +1773,9 @@ class SingleRepoAnalyzer {
             // Re-display the results
             this.displayLicenseCompliance(this.currentAnalysis);
             
-            // Save updated analysis
+            // Save updated analysis to IndexedDB
             const { owner, name } = this.currentAnalysis.repository;
-            await singleRepoStorage.saveAnalysis(owner, name, this.currentAnalysis);
+            await this.storageManager.saveSingleRepoAnalysis(owner, name, this.currentAnalysis);
             
             this.showAlert('License analysis updated successfully!', 'success');
         } catch (error) {
@@ -1799,9 +1817,9 @@ class SingleRepoAnalyzer {
             // Re-display the results
             this.displayDependencyDrift(this.currentAnalysis);
             
-            // Save updated analysis
+            // Save updated analysis to IndexedDB
             const { owner, name } = this.currentAnalysis.repository;
-            await singleRepoStorage.saveAnalysis(owner, name, this.currentAnalysis);
+            await this.storageManager.saveSingleRepoAnalysis(owner, name, this.currentAnalysis);
             
             this.showAlert('Dependency drift analysis updated successfully!', 'success');
         } catch (error) {
@@ -3553,7 +3571,6 @@ class SingleRepoAnalyzer {
 
     /**
      * Load and display previous analyses
-     * TODO: Integrate with main StorageManager
      */
     async loadPreviousAnalyses() {
         try {
@@ -3561,24 +3578,15 @@ class SingleRepoAnalyzer {
             
             if (!container) return;
 
-            // Temporarily disabled - will integrate with main StorageManager
-            container.innerHTML = `
-                <div class="text-center text-muted">
-                    <i class="fas fa-history fa-2x mb-2"></i>
-                    <p>Previous analyses feature coming soon</p>
-                    <small>Will be integrated with unified storage system</small>
-                </div>
-            `;
-            return;
-
-            /* Original code - to be re-enabled after storage integration
-            const analyses = []; // await storageManager.getSingleRepoAnalyses();
+            // Load all analyses from IndexedDB
+            const analyses = await this.storageManager.getAllSingleRepoAnalyses();
             
             if (analyses.length === 0) {
                 container.innerHTML = `
                     <div class="text-center text-muted">
                         <i class="fas fa-history fa-2x mb-2"></i>
                         <p>No previous analyses found</p>
+                        <small>Run an analysis to see it saved here</small>
                     </div>
                 `;
                 return;
@@ -3595,19 +3603,19 @@ class SingleRepoAnalyzer {
                                         ${analysis.owner}/${analysis.name}
                                     </h6>
                                     <p class="card-text small text-muted">
-                                        Analyzed: ${new Date(analysis.timestamp).toLocaleDateString()}
+                                        Analyzed: ${new Date(analysis.timestamp).toLocaleDateString()} ${new Date(analysis.timestamp).toLocaleTimeString()}
                                     </p>
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-outline-primary btn-sm" 
-                                                onclick="loadPreviousAnalysis('${analysis.owner}', '${analysis.name}')">
+                                                onclick="window.singleRepoAnalyzer.loadPreviousAnalysis('${analysis.owner}', '${analysis.name}')">
                                             <i class="fas fa-eye me-1"></i>View
                                         </button>
                                         <button class="btn btn-outline-success btn-sm" 
-                                                onclick="exportPreviousAnalysis('${analysis.owner}', '${analysis.name}')">
+                                                onclick="window.singleRepoAnalyzer.exportPreviousAnalysis('${analysis.owner}', '${analysis.name}')">
                                             <i class="fas fa-download me-1"></i>Export
                                         </button>
                                         <button class="btn btn-outline-danger btn-sm" 
-                                                onclick="deletePreviousAnalysis('${analysis.owner}', '${analysis.name}')">
+                                                onclick="window.singleRepoAnalyzer.deletePreviousAnalysis('${analysis.owner}', '${analysis.name}')">
                                             <i class="fas fa-trash me-1"></i>Delete
                                         </button>
                                     </div>
@@ -3629,92 +3637,114 @@ class SingleRepoAnalyzer {
             container.innerHTML = html;
         } catch (error) {
             console.error('❌ Failed to load previous analyses:', error);
+            const container = document.getElementById('previousAnalysesContent');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p>Failed to load previous analyses</p>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
         }
     }
 
     /**
      * Load a previous analysis
-     * TODO: Integrate with unified StorageManager
      */
     async loadPreviousAnalysis(owner, name) {
         try {
-            // Temporarily disabled
-            this.showAlert('Load previous analysis feature coming soon', 'info');
-            return;
+            const analysis = await this.storageManager.loadSingleRepoAnalysis(owner, name);
             
-            // const analysis = await storageManager.loadSingleRepoAnalysis(owner, name);
-            if (analysis) {
-                this.currentAnalysis = analysis.analysisData;
-                
-                // Restore sbomProcessor state from stored analysis
-                if (analysis.analysisData.sbomData) {
-                    // Recreate dependencies in sbomProcessor
-                    this.sbomProcessor = new SBOMProcessor();
-                    if (analysis.analysisData.sbomData.allDependencies) {
-                        analysis.analysisData.sbomData.allDependencies.forEach(dep => {
-                            const key = `${dep.name}@${dep.version}`;
-                            this.sbomProcessor.dependencies.set(key, dep);
-                        });
-                    }
-                    
-                    // Restore license processor if needed
-                    if (!this.sbomProcessor.licenseProcessor) {
-                        this.sbomProcessor.licenseProcessor = new LicenseProcessor();
-                    }
-                    
-                    // Restore deps.dev analysis if available
-                    if (analysis.analysisData.depsDevAnalysis) {
-                        this.sbomProcessor.depsDevAnalysis = analysis.analysisData.depsDevAnalysis;
-                    }
+            if (!analysis) {
+                this.showAlert(`No analysis found for ${owner}/${name}`, 'warning');
+                return;
+            }
+            
+            // Set the current analysis (the analysis object IS the data, not wrapped in analysisData)
+            this.currentAnalysis = analysis;
+            
+            // Restore sbomProcessor state from stored analysis
+            if (analysis.sbomData) {
+                // Recreate dependencies in sbomProcessor
+                this.sbomProcessor = new SBOMProcessor();
+                if (analysis.sbomData.allDependencies) {
+                    analysis.sbomData.allDependencies.forEach(dep => {
+                        const key = `${dep.name}@${dep.version}`;
+                        this.sbomProcessor.dependencies.set(key, dep);
+                    });
                 }
                 
-                this.displayRepositoryInfo(analysis.analysisData.repository.info);
-                this.displayResults(analysis.analysisData);
+                // Restore license processor if needed
+                if (!this.sbomProcessor.licenseProcessor) {
+                    this.sbomProcessor.licenseProcessor = new LicenseProcessor();
+                }
                 
-                // Scroll to results
-                document.getElementById('repoInfoSection')?.scrollIntoView({ behavior: 'smooth' });
-                
-                this.showAlert(`Loaded analysis for ${owner}/${name}`, 'success');
+                // Restore deps.dev analysis if available
+                if (analysis.depsDevAnalysis) {
+                    this.sbomProcessor.depsDevAnalysis = analysis.depsDevAnalysis;
+                }
             }
+            
+            // Display the loaded analysis
+            this.displayRepositoryInfo(analysis.repository.info);
+            this.displayResults(analysis);
+            
+            // Scroll to results
+            document.getElementById('repoInfoSection')?.scrollIntoView({ behavior: 'smooth' });
+            
+            this.showAlert(`Loaded analysis for ${owner}/${name}`, 'success');
         } catch (error) {
             console.error('❌ Failed to load analysis:', error);
-            this.showAlert('Failed to load analysis', 'danger');
+            this.showAlert('Failed to load analysis: ' + error.message, 'danger');
         }
     }
 
     /**
      * Export a previous analysis
-     * TODO: Integrate with unified StorageManager
      */
     async exportPreviousAnalysis(owner, name) {
         try {
-            this.showAlert('Export feature coming soon', 'info');
-            return;
+            const analysis = await this.storageManager.loadSingleRepoAnalysis(owner, name);
             
-            // await storageManager.exportSingleRepoAnalysis(owner, name);
+            if (!analysis) {
+                this.showAlert(`No analysis found for ${owner}/${name}`, 'warning');
+                return;
+            }
+            
+            // Create JSON blob and download
+            const dataStr = JSON.stringify(analysis, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `sbom-analysis-${owner}-${name}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
             this.showAlert(`Analysis exported for ${owner}/${name}`, 'success');
         } catch (error) {
             console.error('❌ Failed to export analysis:', error);
-            this.showAlert('Failed to export analysis', 'danger');
+            this.showAlert('Failed to export analysis: ' + error.message, 'danger');
         }
     }
 
     /**
      * Delete a previous analysis
-     * TODO: Integrate with unified StorageManager
      */
     async deletePreviousAnalysis(owner, name) {
         if (confirm(`Are you sure you want to delete the analysis for ${owner}/${name}?`)) {
             try {
-                this.showAlert('Delete feature coming soon', 'info');
-                return;
-                
-                // await storageManager.deleteSingleRepoAnalysis(owner, name);
+                await this.storageManager.deleteSingleRepoAnalysis(owner, name);
                 this.loadPreviousAnalyses(); // Refresh the list
                 this.showAlert(`Analysis deleted for ${owner}/${name}`, 'success');
             } catch (error) {
                 console.error('❌ Failed to delete analysis:', error);
-                this.showAlert('Failed to delete analysis', 'danger');
+                this.showAlert('Failed to delete analysis: ' + error.message, 'danger');
             }
         }
     }
@@ -3729,16 +3759,25 @@ class SingleRepoAnalyzer {
         }
 
         try {
-            // TODO: Export functionality to be integrated with unified StorageManager
-            this.showAlert('Export feature coming soon', 'info');
-            return;
+            const repo = this.currentAnalysis.repository;
             
-            // const repo = this.currentAnalysis.repository;
-            // await storageManager.exportSingleRepoAnalysis(repo.owner, repo.name);
+            // Create JSON blob and download
+            const dataStr = JSON.stringify(this.currentAnalysis, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `sbom-analysis-${repo.owner}-${repo.name}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
             this.showAlert('Analysis exported successfully', 'success');
         } catch (error) {
             console.error('❌ Failed to export current analysis:', error);
-            this.showAlert('Failed to export analysis', 'danger');
+            this.showAlert('Failed to export analysis: ' + error.message, 'danger');
         }
     }
 
@@ -3856,7 +3895,13 @@ class SingleRepoAnalyzer {
     showResults(show) {
         const resultsSection = document.getElementById('resultsSection');
         if (resultsSection) {
-            resultsSection.style.display = show ? 'block' : 'none';
+            if (show) {
+                resultsSection.classList.remove('hidden');
+                resultsSection.style.display = 'block';
+            } else {
+                resultsSection.classList.add('hidden');
+                resultsSection.style.display = 'none';
+            }
         }
     }
 
@@ -3866,8 +3911,143 @@ class SingleRepoAnalyzer {
     showExportSection(show) {
         const exportSection = document.getElementById('exportSection');
         if (exportSection) {
-            exportSection.style.display = show ? 'block' : 'none';
+            if (show) {
+                exportSection.classList.remove('hidden');
+                exportSection.style.display = 'block';
+            } else {
+                exportSection.classList.add('hidden');
+                exportSection.style.display = 'none';
+            }
         }
+    }
+
+    /**
+     * Show rate limit waiting message
+     */
+    showRateLimitWaiting(waitTime, resetTime) {
+        const resetDate = new Date(resetTime * 1000);
+        const resetTimeStr = resetDate.toLocaleTimeString();
+        
+        // Create or update rate limit banner
+        let rateLimitBanner = document.getElementById('rateLimitBanner');
+        if (!rateLimitBanner) {
+            rateLimitBanner = document.createElement('div');
+            rateLimitBanner.id = 'rateLimitBanner';
+            rateLimitBanner.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+            rateLimitBanner.style.zIndex = '9999';
+            rateLimitBanner.style.maxWidth = '600px';
+            rateLimitBanner.style.width = '90%';
+            rateLimitBanner.style.backgroundColor = '#856404';
+            rateLimitBanner.style.color = '#fff3cd';
+            rateLimitBanner.style.border = '2px solid #ffc107';
+            rateLimitBanner.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
+            rateLimitBanner.style.borderRadius = '8px';
+            document.body.appendChild(rateLimitBanner);
+        }
+        
+        rateLimitBanner.innerHTML = `
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            <h5 class="alert-heading" style="color: #fff3cd; margin-bottom: 10px;"><i class="fas fa-clock me-2"></i>GitHub API Rate Limit Exceeded</h5>
+            <p class="mb-2" style="color: #fff3cd;">The GitHub API rate limit has been reached. The analysis will automatically continue when the limit resets.</p>
+            <hr style="border-color: rgba(255, 243, 205, 0.3);">
+            <p class="mb-1" style="color: #fff3cd;"><strong>Reset Time:</strong> ${resetTimeStr}</p>
+            <p class="mb-0" style="color: #fff3cd;"><strong>Time Remaining:</strong> <span id="rateLimitCountdown">${this.formatTime(waitTime)}</span></p>
+            <small class="d-block mt-2" style="color: #ffc107;">
+                <i class="fas fa-info-circle me-1"></i>
+                Tip: Add a <a href="#" onclick="toggleTokenSection(); return false;" style="color: #ffc107; text-decoration: underline;">GitHub Personal Access Token</a> to increase your rate limit from 60 to 5,000 requests/hour.
+            </small>
+        `;
+        
+        // Start countdown timer
+        this.startRateLimitCountdown(waitTime);
+        
+        // Disable analyze button
+        const analyzeBtn = document.getElementById('analyzeRepoBtn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+        }
+        
+        // Show in progress section too if visible
+        const progressSection = document.getElementById('progressSection');
+        const progressText = document.getElementById('progressText');
+        if (progressSection && progressSection.style.display !== 'none') {
+            progressText.innerHTML = `
+                <div class="alert alert-warning mb-0">
+                    <h6><i class="fas fa-clock me-2"></i>Waiting for Rate Limit Reset</h6>
+                    <p class="mb-0">Analysis will continue in <span id="progressRateLimitCountdown">${this.formatTime(waitTime)}</span></p>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Hide rate limit waiting message
+     */
+    hideRateLimitWaiting() {
+        // Remove rate limit banner
+        const rateLimitBanner = document.getElementById('rateLimitBanner');
+        if (rateLimitBanner) {
+            rateLimitBanner.remove();
+        }
+        
+        // Re-enable analyze button
+        const analyzeBtn = document.getElementById('analyzeRepoBtn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+        }
+        
+        // Clear countdown timer
+        if (this.rateLimitTimer) {
+            clearInterval(this.rateLimitTimer);
+            this.rateLimitTimer = null;
+        }
+        
+        // Show success message
+        this.showAlert('Rate limit reset. Analysis continuing...', 'success');
+    }
+
+    /**
+     * Start countdown timer for rate limit
+     */
+    startRateLimitCountdown(waitTime) {
+        if (this.rateLimitTimer) {
+            clearInterval(this.rateLimitTimer);
+        }
+        
+        let remaining = waitTime;
+        this.rateLimitTimer = setInterval(() => {
+            remaining--;
+            const formattedTime = this.formatTime(remaining);
+            
+            // Update main countdown
+            const countdown = document.getElementById('rateLimitCountdown');
+            if (countdown) {
+                countdown.textContent = formattedTime;
+            }
+            
+            // Update progress countdown if visible
+            const progressCountdown = document.getElementById('progressRateLimitCountdown');
+            if (progressCountdown) {
+                progressCountdown.textContent = formattedTime;
+            }
+            
+            if (remaining <= 0) {
+                clearInterval(this.rateLimitTimer);
+                this.rateLimitTimer = null;
+            }
+        }, 1000);
+    }
+
+    /**
+     * Format time in seconds to human readable string
+     */
+    formatTime(seconds) {
+        if (seconds < 60) {
+            return `${seconds} second${seconds !== 1 ? 's' : ''}`;
+        }
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ${secs} second${secs !== 1 ? 's' : ''}`;
     }
 
     /**
@@ -4174,7 +4354,7 @@ function clearCurrentAnalysis() {
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     // Check IndexedDB support
-    if (!SingleRepoStorage.isSupported()) {
+    if (!window.indexedDB) {
         alert('Your browser does not support IndexedDB. Some features may not work properly.');
         return;
     }

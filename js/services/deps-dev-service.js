@@ -65,6 +65,47 @@ class DepsDevService {
     }
 
     /**
+     * Validate if a version string is a specific version (not a range/wildcard)
+     * @param {string} version - Version string to validate
+     * @returns {boolean} True if version is specific, false if it's a range/wildcard
+     */
+    isValidSpecificVersion(version) {
+        if (!version || typeof version !== 'string') {
+            return false;
+        }
+        
+        // Check for common version range/wildcard indicators
+        const invalidPatterns = [
+            '*',           // Wildcards
+            'x',           // Wildcards (e.g., 1.x.x)
+            '^',           // Caret ranges
+            '~',           // Tilde ranges
+            '>',           // Greater than
+            '<',           // Less than
+            '>=',          // Greater than or equal
+            '<=',          // Less than or equal
+            '||',          // OR operator
+            ' - ',         // Range operator
+            'latest',      // Special keywords
+            'next',
+            'beta',
+            'alpha',
+            'rc',
+            'snapshot'
+        ];
+        
+        // Check if version contains any invalid patterns
+        const versionLower = version.toLowerCase();
+        for (const pattern of invalidPatterns) {
+            if (versionLower.includes(pattern)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
      * Fetch package metadata (maintainers, version history, etc.)
      * @param {string} system
      * @param {string} packageName
@@ -72,6 +113,12 @@ class DepsDevService {
      * @returns {Promise<Object>} Package metadata
      */
     async fetchPackageMetadata(system, packageName, version) {
+        // Validate version string first
+        if (!this.isValidSpecificVersion(version)) {
+            console.log(`ℹ️  DepsDev: Skipping ${system}:${packageName}:${version} (version is a range/wildcard, not supported by API)`);
+            return null;
+        }
+        
         const cacheKey = `metadata:${system}:${packageName}:${version}`;
         
         // Check cache first
@@ -97,9 +144,16 @@ class DepsDevService {
             });
 
             if (!response.ok) {
+                // 404 is normal - package/version doesn't exist in deps.dev
+                if (response.status === 404) {
+                    console.log(`ℹ️  DepsDev: No metadata found for ${system}:${packageName}:${version} (not in database)`);
+                    return null;
+                }
+                
+                // Other errors should be logged but not throw
                 const errorText = await response.text();
-                console.error(`❌ DepsDev: API error for metadata ${system}:${packageName}:${version}:`, errorText);
-                throw new Error(`DepsDev API error: ${response.status} ${response.statusText} - ${errorText}`);
+                console.warn(`⚠️  DepsDev: API error for metadata ${system}:${packageName}:${version}: ${response.status} ${response.statusText}`);
+                return null;
             }
 
             const data = await response.json();
@@ -113,8 +167,8 @@ class DepsDevService {
             console.log(`✅ DepsDev: Found metadata for ${system}:${packageName}:${version}`);
             return data;
         } catch (error) {
-            console.error(`❌ DepsDev: Failed to fetch metadata for ${system}:${packageName}:${version}:`, error);
-            throw error;
+            console.warn(`⚠️  DepsDev: Failed to fetch metadata for ${system}:${packageName}:${version}:`, error.message);
+            return null;
         }
     }
 
@@ -150,9 +204,16 @@ class DepsDevService {
             });
 
             if (!response.ok) {
+                // 404 is normal - package doesn't exist in deps.dev
+                if (response.status === 404) {
+                    console.log(`ℹ️  DepsDev: No package info found for ${system}:${packageName} (not in database)`);
+                    return null;
+                }
+                
+                // Other errors should be logged but not throw
                 const errorText = await response.text();
-                console.error(`❌ DepsDev: API error for package info ${system}:${packageName}:`, errorText);
-                throw new Error(`DepsDev API error: ${response.status} ${response.statusText} - ${errorText}`);
+                console.warn(`⚠️  DepsDev: API error for package info ${system}:${packageName}: ${response.status} ${response.statusText}`);
+                return null;
             }
 
             const data = await response.json();
@@ -166,8 +227,8 @@ class DepsDevService {
             console.log(`✅ DepsDev: Found package info for ${system}:${packageName}`);
             return data;
         } catch (error) {
-            console.error(`❌ DepsDev: Failed to fetch package info for ${system}:${packageName}:`, error);
-            throw error;
+            console.warn(`⚠️  DepsDev: Failed to fetch package info for ${system}:${packageName}:`, error.message);
+            return null;
         }
     }
 

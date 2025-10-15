@@ -3101,4 +3101,260 @@ class ViewManager {
         </div>
         `;
     }
+
+    /**
+     * Render Author Analysis table
+     * @param {Array} authorData - Array of author analysis objects
+     * @param {string} containerId - ID of container element
+     */
+    renderAuthorAnalysis(authorData, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error(`Container ${containerId} not found for author analysis`);
+            return;
+        }
+
+        if (!authorData || authorData.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No author data available. Run an analysis to see package authors.
+                </div>
+            `;
+            return;
+        }
+
+        // Get unique ecosystems for filter
+        const ecosystems = [...new Set(authorData.map(a => a.ecosystem))].sort();
+
+        // Create filter and search UI
+        const filterHTML = `
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" 
+                               class="form-control" 
+                               id="author-search-input" 
+                               placeholder="Search authors by name...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="author-ecosystem-filter">
+                        <option value="">All Ecosystems</option>
+                        ${ecosystems.map(eco => `<option value="${eco}">${eco}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="col-md-3 text-end">
+                    <span class="badge bg-primary fs-6">
+                        ${authorData.length} unique authors
+                    </span>
+                </div>
+            </div>
+        `;
+
+        // Create table
+        const tableHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover" id="author-analysis-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="sortable" data-sort="author">
+                                Author <i class="fas fa-sort ms-1"></i>
+                            </th>
+                            <th class="sortable" data-sort="ecosystem">
+                                Ecosystem <i class="fas fa-sort ms-1"></i>
+                            </th>
+                            <th class="sortable text-center" data-sort="packageCount">
+                                Total Packages <i class="fas fa-sort ms-1"></i>
+                            </th>
+                            <th class="sortable text-center" data-sort="directCount">
+                                Direct <i class="fas fa-sort ms-1"></i>
+                            </th>
+                            <th class="sortable text-center" data-sort="transitiveCount">
+                                Transitive <i class="fas fa-sort ms-1"></i>
+                            </th>
+                            <th class="sortable text-center" data-sort="percentage">
+                                % of Total <i class="fas fa-sort ms-1"></i>
+                            </th>
+                            <th>Links</th>
+                        </tr>
+                    </thead>
+                    <tbody id="author-table-body">
+                        ${this.generateAuthorRows(authorData)}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = filterHTML + tableHTML;
+
+        // Add event listeners
+        this.attachAuthorFilterListeners(authorData);
+    }
+
+    /**
+     * Generate table rows for authors
+     * @param {Array} authors - Filtered author data
+     * @returns {string} HTML for table rows
+     */
+    generateAuthorRows(authors) {
+        return authors.map(author => `
+            <tr data-author-id="${Utils.escapeHtml(author.authorId)}">
+                <td>
+                    <strong>${Utils.escapeHtml(author.displayName || author.author)}</strong>
+                    ${author.email ? `<br><small class="text-muted">${Utils.escapeHtml(author.email)}</small>` : ''}
+                </td>
+                <td>
+                    <span class="badge bg-secondary">
+                        <i class="${Utils.getEcosystemIcon(author.ecosystem)} me-1"></i>
+                        ${Utils.escapeHtml(author.ecosystem)}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-primary">${author.packageCount}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success">${author.directCount}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-info">${author.transitiveCount}</span>
+                </td>
+                <td class="text-center">
+                    <strong>${author.percentage}%</strong>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        ${author.links.registry ? `
+                            <a href="${author.links.registry}" 
+                               target="_blank" 
+                               class="btn btn-outline-primary btn-sm"
+                               title="View on ${author.ecosystem}">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        ` : ''}
+                        ${author.links.githubSearch ? `
+                            <a href="${author.links.githubSearch}" 
+                               target="_blank" 
+                               class="btn btn-outline-secondary btn-sm"
+                               title="Search on GitHub">
+                                <i class="fab fa-github"></i>
+                            </a>
+                        ` : ''}
+                        ${author.links.homepage ? `
+                            <a href="${author.links.homepage}" 
+                               target="_blank" 
+                               class="btn btn-outline-info btn-sm"
+                               title="Homepage">
+                                <i class="fas fa-home"></i>
+                            </a>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    /**
+     * Attach event listeners for author filtering and sorting
+     * @param {Array} originalData - Original unfiltered author data
+     */
+    attachAuthorFilterListeners(originalData) {
+        let currentData = [...originalData];
+        let sortField = 'packageCount';
+        let sortDirection = 'desc';
+
+        // Search input
+        const searchInput = document.getElementById('author-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', Utils.debounce((e) => {
+                const query = e.target.value.toLowerCase().trim();
+                currentData = originalData.filter(author =>
+                    (author.author && author.author.toLowerCase().includes(query)) ||
+                    (author.displayName && author.displayName.toLowerCase().includes(query)) ||
+                    (author.email && author.email.toLowerCase().includes(query))
+                );
+                applyEcosystemFilter();
+            }, 300));
+        }
+
+        // Ecosystem filter
+        const ecosystemFilter = document.getElementById('author-ecosystem-filter');
+        if (ecosystemFilter) {
+            ecosystemFilter.addEventListener('change', applyEcosystemFilter);
+        }
+
+        function applyEcosystemFilter() {
+            const ecosystem = ecosystemFilter ? ecosystemFilter.value : '';
+            let filtered = currentData;
+            
+            if (ecosystem) {
+                filtered = currentData.filter(author => author.ecosystem === ecosystem);
+            }
+            
+            // Apply current sort
+            filtered = sortAuthors(filtered, sortField, sortDirection);
+            updateTable(filtered);
+        }
+
+        // Sortable columns
+        const sortableHeaders = document.querySelectorAll('#author-analysis-table .sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const field = header.dataset.sort;
+                
+                // Toggle direction if same field
+                if (field === sortField) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortField = field;
+                    sortDirection = field === 'author' ? 'asc' : 'desc'; // Default desc for numbers
+                }
+                
+                // Update UI
+                sortableHeaders.forEach(h => {
+                    const icon = h.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fas fa-sort ms-1';
+                    }
+                });
+                
+                const icon = header.querySelector('i');
+                if (icon) {
+                    icon.className = sortDirection === 'asc' ? 'fas fa-sort-up ms-1' : 'fas fa-sort-down ms-1';
+                }
+                
+                applyEcosystemFilter();
+            });
+        });
+
+        function sortAuthors(data, field, direction) {
+            return data.sort((a, b) => {
+                let aVal = a[field];
+                let bVal = b[field];
+                
+                // Handle string comparisons
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                if (direction === 'asc') {
+                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                } else {
+                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                }
+            });
+        }
+
+        function updateTable(data) {
+            const tbody = document.getElementById('author-table-body');
+            if (tbody) {
+                tbody.innerHTML = window.viewManager.generateAuthorRows(data);
+            }
+        }
+
+        // Initial sort
+        applyEcosystemFilter();
+    }
 }

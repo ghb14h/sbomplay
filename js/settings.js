@@ -5,16 +5,19 @@ class SettingsApp {
     constructor() {
         this.githubClient = new GitHubClient();
         this.storageManager = new StorageManager();
-        this.initializeSettings();
+        // Don't call initializeSettings here - it's async and will be called from DOMContentLoaded
     }
 
     /**
      * Initialize settings page
      */
-    initializeSettings() {
+    async initializeSettings() {
+        // Wait for storage manager to initialize
+        await this.storageManager.init();
+        
         this.loadSavedToken();
-        this.showStorageStatus();
-        this.displayOrganizationsOverview();
+        await this.showStorageStatus();
+        await this.displayOrganizationsOverview();
         this.loadRateLimitInfo();
         this.setupEventListeners();
     }
@@ -139,8 +142,8 @@ class SettingsApp {
     /**
      * Show storage status
      */
-    showStorageStatus() {
-        const storageInfo = this.storageManager.getStorageInfo();
+    async showStorageStatus() {
+        const storageInfo = await this.storageManager.getStorageInfo();
         const statusElement = document.getElementById('storageStatus');
         
         const usagePercentage = (storageInfo.usedBytes / storageInfo.totalBytes) * 100;
@@ -192,38 +195,38 @@ class SettingsApp {
     /**
      * Test storage quota
      */
-    testStorageQuota() {
+    async testStorageQuota() {
         try {
-            this.storageManager.testStorageQuota();
+            await this.storageManager.testStorageQuota();
             this.showAlert('Storage test completed successfully!', 'success');
-            this.showStorageStatus(); // Refresh display
+            await this.showStorageStatus(); // Refresh display
         } catch (error) {
             this.showAlert(`Storage test failed: ${error.message}`, 'danger');
         }
     }
 
     /**
-     * Migrate old data
+     * Migrate old data (simple version)
      */
-    migrateOldData() {
+    async migrateOldDataSimple() {
         try {
-            this.storageManager.migrateOldData();
+            await this.storageManager.migrateOldData();
             this.showAlert('Data migration completed!', 'success');
-            this.showStorageStatus(); // Refresh display
+            await this.showStorageStatus(); // Refresh display
         } catch (error) {
             this.showAlert(`Migration failed: ${error.message}`, 'danger');
         }
     }
 
     /**
-     * Clear old data
+     * Clear old data (simple version)
      */
-    clearOldData() {
+    async clearOldDataSimple() {
         if (confirm('Are you sure you want to clear old data? This will remove old history entries and keep only recent analyses.')) {
             try {
-                this.storageManager.clearOldData();
+                await this.storageManager.clearOldData();
                 this.showAlert('Old data cleared successfully!', 'success');
-                this.showStorageStatus(); // Refresh display
+                await this.showStorageStatus(); // Refresh display
             } catch (error) {
                 this.showAlert(`Failed to clear old data: ${error.message}`, 'danger');
             }
@@ -233,13 +236,13 @@ class SettingsApp {
     /**
      * Clear all data
      */
-    clearAllData() {
+    async clearAllData() {
         if (confirm('Are you sure you want to clear ALL data? This action cannot be undone.')) {
             try {
-                this.storageManager.clearAllData();
+                await this.storageManager.clearAllData();
                 this.showAlert('All data cleared successfully!', 'success');
-                this.showStorageStatus(); // Refresh display
-                this.displayOrganizationsOverview(); // Refresh display
+                await this.showStorageStatus(); // Refresh display
+                await this.displayOrganizationsOverview(); // Refresh display
             } catch (error) {
                 this.showAlert(`Failed to clear data: ${error.message}`, 'danger');
             }
@@ -249,10 +252,10 @@ class SettingsApp {
     /**
      * Clear old data (keep only recent)
      */
-    clearOldData() {
+    async clearOldData() {
         if (confirm('This will remove old analysis data while keeping the most recent. Continue?')) {
             try {
-                const storageInfo = this.storageManager.getStorageInfo();
+                const storageInfo = await this.storageManager.getStorageInfo();
                 const organizations = storageInfo.organizations;
                 
                 if (organizations.length <= 3) {
@@ -266,14 +269,14 @@ class SettingsApp {
                 
                 let removedCount = 0;
                 for (const org of toRemove) {
-                    if (this.storageManager.removeOrganizationData(org.name)) {
+                    if (await this.storageManager.removeOrganizationData(org.name)) {
                         removedCount++;
                     }
                 }
                 
                 this.showAlert(`Cleared ${removedCount} old analyses. Kept 3 most recent.`, 'success');
-                this.displayOrganizationsOverview(); // Refresh display
-                this.showStorageStatus(); // Update storage status
+                await this.displayOrganizationsOverview(); // Refresh display
+                await this.showStorageStatus(); // Update storage status
             } catch (error) {
                 console.error('Clear old data failed:', error);
                 this.showAlert('Failed to clear old data', 'danger');
@@ -302,13 +305,13 @@ class SettingsApp {
     /**
      * Migrate old data to new compressed format
      */
-    migrateOldData() {
+    async migrateOldData() {
         try {
-            const migratedCount = this.storageManager.migrateOldData();
+            const migratedCount = await this.storageManager.migrateOldData();
             if (migratedCount > 0) {
                 this.showAlert(`Successfully migrated ${migratedCount} organizations to compressed format.`, 'success');
-                this.showStorageStatus(); // Update storage status
-                this.displayOrganizationsOverview(); // Refresh display
+                await this.showStorageStatus(); // Update storage status
+                await this.displayOrganizationsOverview(); // Refresh display
             } else {
                 this.showAlert('No old data found to migrate. All data is already in compressed format.', 'info');
             }
@@ -321,8 +324,8 @@ class SettingsApp {
     /**
      * Display organizations overview
      */
-    displayOrganizationsOverview() {
-        const storageInfo = this.storageManager.getStorageInfo();
+    async displayOrganizationsOverview() {
+        const storageInfo = await this.storageManager.getStorageInfo();
         
         if (storageInfo.organizationsCount === 0) {
             document.getElementById('organizationsSection').style.display = 'none';
@@ -486,13 +489,13 @@ class SettingsApp {
     /**
      * Remove organization data
      */
-    removeOrganizationData(orgName) {
+    async removeOrganizationData(orgName) {
         if (confirm(`Are you sure you want to remove all data for ${orgName}?`)) {
-            const success = this.storageManager.removeOrganizationData(orgName);
+            const success = await this.storageManager.removeOrganizationData(orgName);
             if (success) {
                 this.showAlert(`Data for ${orgName} has been removed`, 'success');
-                this.displayOrganizationsOverview();
-                this.showStorageStatus(); // Update storage status
+                await this.displayOrganizationsOverview();
+                await this.showStorageStatus(); // Update storage status
             } else {
                 this.showAlert(`Failed to remove data for ${orgName}`, 'danger');
             }
@@ -525,6 +528,7 @@ class SettingsApp {
 
 // Initialize settings app when page loads
 let settingsApp;
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     settingsApp = new SettingsApp();
+    await settingsApp.initializeSettings();
 }); 
