@@ -14,14 +14,20 @@ class SBOMPlayApp {
         // Make services available globally
         window.osvService = this.osvService;
         window.licenseProcessor = this.licenseProcessor;
+        window.storageManager = this.storageManager;
         
         this.isAnalyzing = false;
         this.rateLimitTimer = null;
+        this.initialized = false;
         
-        this.initializeApp();
+        // Initialize app asynchronously
+        this.initializeApp().then(() => {
+            this.initialized = true;
+            console.log('✅ App fully initialized');
+        });
         
         // Debug: Log service initialization
-        console.log('🔧 App initialization complete:');
+        console.log('🔧 App initialization starting:');
         console.log(`  - GitHub Client: ${this.githubClient ? '✅' : '❌'}`);
         console.log(`  - SBOM Processor: ${this.sbomProcessor ? '✅' : '❌'}`);
         console.log(`  - OSV Service: ${this.osvService ? '✅' : '❌'}`);
@@ -31,41 +37,52 @@ class SBOMPlayApp {
     }
 
     /**
-     * Initialize the application
+     * Initialize the application (async for IndexedDB)
      */
-    initializeApp() {
-        this.loadSavedToken();
-        this.checkStorageAvailability();
-        
-        // Only initialize UI elements if they exist on the current page
-        if (document.getElementById('storageStatus')) {
-            this.showStorageStatus();
-        }
-        if (document.getElementById('storageStatusIndicator')) {
-            this.showStorageStatusIndicator();
-        }
-        if (document.getElementById('resultsSection')) {
-            this.loadPreviousResults();
-        }
-        if (document.getElementById('githubToken') && document.getElementById('orgName') && document.getElementById('analyzeBtn')) {
-            this.setupEventListeners();
-        }
-        if (document.getElementById('resumeSection')) {
-            this.checkRateLimitState();
-        }
-        if (document.getElementById('orgName')) {
-            this.handleURLParameters();
-        }
-        
-        // Show results section if there are stored organizations
-        const storageInfo = this.storageManager.getStorageInfo();
-        if (storageInfo.organizationsCount > 0 && document.getElementById('resultsSection')) {
-            document.getElementById('resultsSection').style.display = 'block';
-        }
-        
-        // Show Quick Analysis Access section if there are stored organizations
-        if (storageInfo.organizationsCount > 0 && document.getElementById('quickAnalysisSection')) {
-            document.getElementById('quickAnalysisSection').style.display = 'block';
+    async initializeApp() {
+        try {
+            // Initialize IndexedDB
+            await this.storageManager.init();
+            
+            // Migrate from localStorage if needed (one-time)
+            await this.storageManager.migrateFromLocalStorage();
+            
+            this.loadSavedToken();
+            this.checkStorageAvailability();
+            
+            // Only initialize UI elements if they exist on the current page
+            if (document.getElementById('storageStatus')) {
+                await this.showStorageStatus();
+            }
+            if (document.getElementById('storageStatusIndicator')) {
+                await this.showStorageStatusIndicator();
+            }
+            if (document.getElementById('resultsSection')) {
+                await this.loadPreviousResults();
+            }
+            if (document.getElementById('githubToken') && document.getElementById('orgName') && document.getElementById('analyzeBtn')) {
+                this.setupEventListeners();
+            }
+            if (document.getElementById('resumeSection')) {
+                this.checkRateLimitState();
+            }
+            if (document.getElementById('orgName')) {
+                this.handleURLParameters();
+            }
+            
+            // Show results section if there are stored organizations
+            const storageInfo = await this.storageManager.getStorageInfo();
+            if (storageInfo.organizationsCount > 0 && document.getElementById('resultsSection')) {
+                document.getElementById('resultsSection').style.display = 'block';
+            }
+            
+            // Show Quick Analysis Access section if there are stored organizations
+            if (storageInfo.organizationsCount > 0 && document.getElementById('quickAnalysisSection')) {
+                document.getElementById('quickAnalysisSection').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('❌ Failed to initialize app:', error);
+            this.showAlert('Failed to initialize storage. Please refresh the page.', 'danger');
         }
     }
 
@@ -347,10 +364,10 @@ class SBOMPlayApp {
     /**
      * Load previous results
      */
-    loadPreviousResults() {
-        const data = this.storageManager.loadAnalysisData();
+    async loadPreviousResults() {
+        const data = await this.storageManager.loadAnalysisData();
         if (data) {
-            this.displayResults(data.data, data.organization);
+            this.displayResults(data, data.organization);
         } else {
             // Show overview of stored organizations even if no current analysis
             this.displayResults(null, null);
@@ -820,13 +837,14 @@ class SBOMPlayApp {
     /**
      * Clear current data
      */
-    clearData() {
-        const currentData = this.storageManager.loadAnalysisData();
+    async clearData() {
+        const currentData = await this.storageManager.loadAnalysisData();
         if (currentData) {
             if (confirm(`Are you sure you want to remove data for ${currentData.organization}?`)) {
-                this.storageManager.removeOrganizationData(currentData.organization);
+                await this.storageManager.removeOrganizationData(currentData.organization);
                 this.displayResults(null, null); // Refresh display
                 this.showAlert('Data cleared successfully', 'success');
+                await this.showStorageStatusIndicator();
             }
         } else {
             this.showAlert('No data to clear', 'warning');
@@ -836,8 +854,8 @@ class SBOMPlayApp {
     /**
      * Show storage status in UI
      */
-    showStorageStatus() {
-        const storageInfo = this.storageManager.getStorageInfo();
+    async showStorageStatus() {
+        const storageInfo = await this.storageManager.getStorageInfo();
         const storageStatusDiv = document.getElementById('storageStatus');
         
         // Check if the storage status div exists on this page
@@ -885,8 +903,8 @@ class SBOMPlayApp {
     /**
      * Show storage status indicator in header
      */
-    showStorageStatusIndicator() {
-        const storageInfo = this.storageManager.getStorageInfo();
+    async showStorageStatusIndicator() {
+        const storageInfo = await this.storageManager.getStorageInfo();
         const indicatorDiv = document.getElementById('storageStatusIndicator');
         const statusTextDiv = document.getElementById('storageStatusText');
         
@@ -929,10 +947,10 @@ class SBOMPlayApp {
     /**
      * Export all data
      */
-    exportAllData() {
+    async exportAllData() {
         try {
             const filename = `sbom-all-data-${new Date().toISOString().split('T')[0]}.json`;
-            this.storageManager.exportAllData(filename);
+            await this.storageManager.exportAllData(filename);
             this.showAlert('All data exported successfully', 'success');
         } catch (error) {
             console.error('Export failed:', error);

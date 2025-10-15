@@ -186,8 +186,16 @@ node_modules/
 dist/
 build/
 
-# Production folder is included in version control for GitHub Pages deployment
-# docs/
+# Production folder (now deployed via GitHub Actions)
+docs/
+
+# Deployment scripts (replaced by GitHub Actions)
+deploy.sh
+update-prod.sh
+*.sh
+
+# Backup files
+backup_docs.zip
 
 # Browser storage (auto-generated)
 client-storage/

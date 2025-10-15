@@ -4,15 +4,19 @@ A web-based tool for analyzing Software Bill of Materials (SBOM) data from GitHu
 
 ## Features
 
-- Analyze SBOM data from GitHub organizations and users
-- Track dependency usage across repositories
-- Generate dependency distribution reports
-- Export analysis results as JSON
-- Rate limit handling and recovery
-- Persistent storage of analysis results
-- Multi-organization storage: Keep data for all analyzed organizations until manually cleared
-- Organization management: View, load, and remove individual organization data
-- Bulk export: Export all stored analyses at once
+- **Organization & User Analysis**: Analyze SBOM data from GitHub organizations and users
+- **Single Repository Analysis**: Dedicated tool for deep-dive analysis of individual repositories with enhanced dependency tracking
+- **Dependency Tracking**: Track dependency usage across repositories with transitive dependency detection
+- **Vulnerability Analysis**: Integration with OSV database for security vulnerability detection
+- **License Compliance**: Automated license compatibility checking and conflict detection
+- **Version Drift Detection**: Track outdated dependencies with deps.dev integration
+- **Distribution Reports**: Generate comprehensive dependency distribution reports
+- **Export & Import**: Export analysis results as JSON
+- **Rate Limit Handling**: Automatic rate limit detection and recovery
+- **Multi-Organization Storage**: Keep data for all analyzed organizations until manually cleared
+- **Cyfinoid Branding**: Professional dark/light theme with the Sen font family
+- **Theme Toggle**: Switch between dark and light modes on all pages
+- **Persistent Storage**: All analysis data is saved and persists between sessions
 
 ## Quick Start
 
@@ -25,27 +29,63 @@ A web-based tool for analyzing Software Bill of Materials (SBOM) data from GitHu
 ## Development & Deployment
 
 ### Development Workflow
-1. **Work in main folder** - Edit `index.html`, `js/`, `css/` files directly
+1. **Work in root folder** - Edit HTML files, `js/`, and `css/` directly
 2. **Test locally** - Open `index.html` in browser to test
-3. **Deploy when ready**:
-   ```bash
-   ./deploy.sh                    # Automatic deployment with meaningful commit
-   ```
-   
-   Or manually:
-   ```bash
-   ./update-prod.sh                    # Copy to docs folder
-   git add docs/                       # Stage changes
-   git commit -S -m "deploy: update SBOM Play production files"   # Commit with signing
-   git push                            # Deploy to GitHub Pages
-   ```
+3. **Commit changes** - Push to your repository
+4. **Deploy**: Deployment happens automatically via GitHub Actions
 
-### GitHub Pages Setup
+### GitHub Actions Deployment
+
+The project uses GitHub Actions for automated deployment to GitHub Pages. Deployment is triggered:
+
+- **Manually**: Go to Actions tab → "Deploy to GitHub Pages" → Run workflow
+- **On Release**: When a new release is published
+
+#### Setup GitHub Actions Deployment
 1. Go to repository Settings → Pages
-2. Source: Deploy from a branch
-3. Branch: `main` (or your default)
-4. Folder: `/docs`
-5. Your site will be at: `https://yourusername.github.io/sbomplay/`
+2. Source: **GitHub Actions** (not "Deploy from a branch")
+3. The workflow file is at `.github/workflows/deploy.yml`
+4. Your site will be at: `https://yourusername.github.io/sbomplay/`
+
+#### Legacy Deployment (deprecated)
+The `docs/` folder is no longer used for deployment. A backup has been saved as `backup_docs.zip` in the root directory for reference.
+
+### Project Structure
+
+```
+sbomplay/
+├── index.html              # Main organization analysis page
+├── singlerepo.html         # Single repository analysis tool
+├── stats.html              # Statistics dashboard
+├── deps.html               # Dependency overview
+├── vuln.html               # Vulnerability analysis
+├── license-compliance.html # License compliance checker
+├── settings.html           # Settings and storage management
+├── css/
+│   └── style.css           # Unified Cyfinoid branding styles
+├── js/
+│   ├── app.js              # Main application logic
+│   ├── github-client.js    # GitHub API integration
+│   ├── sbom-processor.js   # SBOM data processing
+│   ├── osv-service.js      # Vulnerability checking (OSV)
+│   ├── license-processor.js # License compliance
+│   ├── storage-manager.js  # LocalStorage management
+│   ├── view-manager.js     # UI rendering
+│   ├── settings.js         # Settings page logic
+│   └── services/
+│       ├── deps-dev-service.js      # deps.dev integration
+│       └── github-actions-service.js # GitHub Actions analysis
+├── documentation/          # All documentation markdown files
+│   ├── brandingguidelines.md
+│   ├── ENHANCEMENTS-README.md
+│   └── ... (other .md files)
+├── .github/
+│   └── workflows/
+│       └── deploy.yml      # GitHub Actions deployment workflow
+├── backup_docs.zip         # Backup of old docs/ folder
+├── README.md               # This file
+└── LICENSE                 # MIT License
+```
 
 ## Recent Fixes
 
@@ -65,15 +105,16 @@ The tool now maintains data for all analyzed organizations and users until manua
 
 ## Storage Management
 
-### Local Storage Quota
+### IndexedDB Storage
 
-SBOM Play uses browser localStorage to store analysis data. localStorage has a 5MB limit, which can be exceeded with large analyses. The tool includes several features to manage this:
+SBOM Play uses browser IndexedDB to store analysis data. **IndexedDB provides unlimited storage capacity** (no 5MB limit like localStorage), allowing you to analyze and store large organizations without worrying about quota limits.
 
-#### Automatic Features
-- **Data Compression**: Large data is automatically compressed to save space
-- **Quota Monitoring**: Real-time storage usage tracking
-- **Automatic Cleanup**: Old data is automatically removed when quota is exceeded
-- **Smart Limits**: Maximum 10 organizations and 20 history entries stored
+#### Key Features
+- **Unlimited Capacity**: Store 100+ MB of analysis data without issues
+- **Fast Performance**: Indexed queries for quick data retrieval
+- **Automatic Migration**: Seamlessly migrates from old localStorage data (one-time)
+- **Smart Limits**: Maximum 50 organizations and 100 history entries stored (auto-cleanup)
+- **Real-time Tracking**: Monitor storage usage across all your analyses
 
 #### Manual Management
 - **Storage Status**: Check current usage and available space
@@ -81,24 +122,15 @@ SBOM Play uses browser localStorage to store analysis data. localStorage has a 5
 - **Clear Old Data**: Remove old analyses while keeping recent ones
 - **Clear All Data**: Complete reset of stored data
 
-#### Storage Warnings
-The tool will show warnings when:
-- Storage usage exceeds 70% (warning)
-- Storage usage exceeds 90% (danger)
-- Quota is exceeded during save (error)
+#### Browser Compatibility
+IndexedDB is supported by all modern browsers:
+- ✅ Chrome 24+
+- ✅ Firefox 16+
+- ✅ Safari 10+
+- ✅ Edge 12+
+- ✅ All modern mobile browsers
 
-### Storage Quota Exceeded Error
-
-If you encounter a "QuotaExceededError", the tool will:
-1. Attempt to compress the data
-2. Clean up old history entries
-3. Remove oldest organizations if needed
-4. Show a user-friendly error message if cleanup fails
-
-**To resolve:**
-1. Export your current data using "Export All Data"
-2. Clear old analyses using "Clear Old Data"
-3. Try the analysis again
+**No more storage quota errors!** IndexedDB automatically handles large datasets that would have exceeded the old 5MB localStorage limit.
 
 ## Troubleshooting
 

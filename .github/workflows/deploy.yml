@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  
+  # Runs when a release is published
+  release:
+    types: [published]
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Prepare deployment files
+        run: |
+          mkdir -p _deploy
+          # Copy only production files
+          cp *.html _deploy/ 2>/dev/null || true
+          cp -r js/ _deploy/js/ 2>/dev/null || true
+          cp -r css/ _deploy/css/ 2>/dev/null || true
+          cp README.md LICENSE _deploy/ 2>/dev/null || true
+          # Copy images/assets if they exist
+          [ -d images ] && cp -r images/ _deploy/images/ || true
+          [ -d assets ] && cp -r assets/ _deploy/assets/ || true
+          echo "Deployment folder contents:"
+          ls -la _deploy/
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload only production files
+          path: '_deploy'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

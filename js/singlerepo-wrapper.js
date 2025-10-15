@@ -30,9 +30,6 @@ class SingleRepoAnalyzer {
      */
     async initializeApp() {
         try {
-            // Initialize IndexedDB storage
-            await singleRepoStorage.init();
-            
             // Load previous analyses
             this.loadPreviousAnalyses();
             
@@ -266,8 +263,9 @@ class SingleRepoAnalyzer {
                 timestamp: new Date().toISOString()
             };
 
-            // Save to IndexedDB
-            await singleRepoStorage.saveAnalysis(owner, name, analysisData);
+            // TODO: Save to unified StorageManager
+            // await storageManager.saveSingleRepoAnalysis(owner, name, analysisData);
+            console.log('✅ Analysis complete (storage integration pending)');
             
             this.currentAnalysis = analysisData;
             this.updateProgress(100, 'Analysis complete!');
@@ -1698,9 +1696,9 @@ class SingleRepoAnalyzer {
             // Re-display the results
             this.displayVulnerabilityAnalysis(this.currentAnalysis);
             
-            // Save updated analysis
-            const { owner, name } = this.currentAnalysis.repository;
-            await singleRepoStorage.saveAnalysis(owner, name, this.currentAnalysis);
+            // TODO: Save updated analysis to unified StorageManager
+            // const { owner, name } = this.currentAnalysis.repository;
+            // await storageManager.saveSingleRepoAnalysis(owner, name, this.currentAnalysis);
             
             this.showAlert('Vulnerability analysis updated successfully!', 'success');
         } catch (error) {
@@ -3555,14 +3553,27 @@ class SingleRepoAnalyzer {
 
     /**
      * Load and display previous analyses
+     * TODO: Integrate with main StorageManager
      */
     async loadPreviousAnalyses() {
         try {
-            const analyses = await singleRepoStorage.getAllAnalyses();
             const container = document.getElementById('previousAnalysesContent');
             
             if (!container) return;
 
+            // Temporarily disabled - will integrate with main StorageManager
+            container.innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="fas fa-history fa-2x mb-2"></i>
+                    <p>Previous analyses feature coming soon</p>
+                    <small>Will be integrated with unified storage system</small>
+                </div>
+            `;
+            return;
+
+            /* Original code - to be re-enabled after storage integration
+            const analyses = []; // await storageManager.getSingleRepoAnalyses();
+            
             if (analyses.length === 0) {
                 container.innerHTML = `
                     <div class="text-center text-muted">
@@ -3623,10 +3634,15 @@ class SingleRepoAnalyzer {
 
     /**
      * Load a previous analysis
+     * TODO: Integrate with unified StorageManager
      */
     async loadPreviousAnalysis(owner, name) {
         try {
-            const analysis = await singleRepoStorage.loadAnalysis(owner, name);
+            // Temporarily disabled
+            this.showAlert('Load previous analysis feature coming soon', 'info');
+            return;
+            
+            // const analysis = await storageManager.loadSingleRepoAnalysis(owner, name);
             if (analysis) {
                 this.currentAnalysis = analysis.analysisData;
                 
@@ -3668,10 +3684,14 @@ class SingleRepoAnalyzer {
 
     /**
      * Export a previous analysis
+     * TODO: Integrate with unified StorageManager
      */
     async exportPreviousAnalysis(owner, name) {
         try {
-            await singleRepoStorage.exportAnalysis(owner, name);
+            this.showAlert('Export feature coming soon', 'info');
+            return;
+            
+            // await storageManager.exportSingleRepoAnalysis(owner, name);
             this.showAlert(`Analysis exported for ${owner}/${name}`, 'success');
         } catch (error) {
             console.error('❌ Failed to export analysis:', error);
@@ -3681,11 +3701,15 @@ class SingleRepoAnalyzer {
 
     /**
      * Delete a previous analysis
+     * TODO: Integrate with unified StorageManager
      */
     async deletePreviousAnalysis(owner, name) {
         if (confirm(`Are you sure you want to delete the analysis for ${owner}/${name}?`)) {
             try {
-                await singleRepoStorage.deleteAnalysis(owner, name);
+                this.showAlert('Delete feature coming soon', 'info');
+                return;
+                
+                // await storageManager.deleteSingleRepoAnalysis(owner, name);
                 this.loadPreviousAnalyses(); // Refresh the list
                 this.showAlert(`Analysis deleted for ${owner}/${name}`, 'success');
             } catch (error) {
@@ -3705,8 +3729,12 @@ class SingleRepoAnalyzer {
         }
 
         try {
-            const repo = this.currentAnalysis.repository;
-            await singleRepoStorage.exportAnalysis(repo.owner, repo.name);
+            // TODO: Export functionality to be integrated with unified StorageManager
+            this.showAlert('Export feature coming soon', 'info');
+            return;
+            
+            // const repo = this.currentAnalysis.repository;
+            // await storageManager.exportSingleRepoAnalysis(repo.owner, repo.name);
             this.showAlert('Analysis exported successfully', 'success');
         } catch (error) {
             console.error('❌ Failed to export current analysis:', error);
