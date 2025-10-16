@@ -67,14 +67,14 @@ class ViewManager {
         }
         
         // Get data from storage for individual organization
-        const orgData = storageManager.getOrganizationData(organization);
+        const orgData = storageManager.getFullOrganizationData(organization);
         if (!orgData) {
             console.error('Organization data not found:', organization);
             this.showError('Organization data not found');
             return;
         }
         
-        const topDeps = orgData.data.topDependencies || [];
+        const topDeps = orgData.topDependencies || [];
         if (index < 0 || index >= topDeps.length) {
             console.error('Invalid dependency index:', index);
             this.showError('Invalid dependency index');
@@ -146,14 +146,14 @@ class ViewManager {
         }
         
         // Get data from storage for individual organization
-        const orgData = storageManager.getOrganizationData(organization);
+        const orgData = storageManager.getFullOrganizationData(organization);
         if (!orgData) {
             console.error('Organization data not found:', organization);
             this.showError('Organization data not found');
             return;
         }
         
-        const topRepos = orgData.data.topRepositories || [];
+        const topRepos = orgData.topRepositories || [];
         if (index < 0 || index >= topRepos.length) {
             console.error('Invalid repository index:', index);
             this.showError('Invalid repository index');
@@ -196,14 +196,14 @@ class ViewManager {
         }
         
         // Get data from storage for individual organization
-        const orgData = storageManager.getOrganizationData(organization);
+        const orgData = storageManager.getFullOrganizationData(organization);
         if (!orgData) {
             console.error('Organization data not found:', organization);
             this.showError('Organization data not found');
             return;
         }
         
-        const allRepos = orgData.data.allRepositories || [];
+        const allRepos = orgData.allRepositories || [];
         if (index < 0 || index >= allRepos.length) {
             console.error('Invalid repository index:', index);
             this.showError('Invalid repository index');
@@ -246,14 +246,14 @@ class ViewManager {
         }
         
         // Get data from storage for individual organization
-        const orgData = storageManager.getOrganizationData(organization);
+        const orgData = storageManager.getFullOrganizationData(organization);
         if (!orgData) {
             console.error('Organization data not found:', organization);
             this.showError('Organization data not found');
             return;
         }
         
-        const allDeps = orgData.data.allDependencies || [];
+        const allDeps = orgData.allDependencies || [];
         if (index < 0 || index >= allDeps.length) {
             console.error('Invalid dependency index:', index);
             this.showError('Invalid dependency index');
@@ -273,7 +273,7 @@ class ViewManager {
         console.log('Showing dependency details from repo index:', index, 'for org:', organization, 'repo:', repoFullName);
         
         // Get data from storage
-        const orgData = storageManager.getOrganizationData(organization);
+        const orgData = storageManager.getFullOrganizationData(organization);
         if (!orgData) {
             console.error('Organization data not found:', organization);
             this.showError('Organization data not found');
@@ -281,7 +281,7 @@ class ViewManager {
         }
         
         // Find the repository
-        const allRepos = orgData.data.allRepositories || [];
+        const allRepos = orgData.allRepositories || [];
         const repo = allRepos.find(r => `${r.owner}/${r.name}` === repoFullName);
         if (!repo) {
             console.error('Repository not found:', repoFullName);
@@ -320,7 +320,7 @@ class ViewManager {
         console.log('Showing organization overview from storage for:', organization);
         
         // Get data from storage
-        const orgData = storageManager.getOrganizationData(organization);
+        const orgData = storageManager.getFullOrganizationData(organization);
         if (!orgData) {
             console.error('Organization data not found:', organization);
             this.showError('Organization data not found');
@@ -365,7 +365,7 @@ class ViewManager {
         console.log('🔍 View Manager - Received orgData:', orgData);
         
         // Validate orgData structure
-        if (!orgData || !orgData.data) {
+        if (!orgData || !orgData) {
             console.error('❌ Invalid orgData structure:', orgData);
             return `
                 <div class="view-header">
@@ -413,7 +413,7 @@ class ViewManager {
             <div id="license-section" class="independent-section">
                 <div class="license-breakdown">
                     <h3>⚖️ License Compliance Analysis</h3>
-                    ${orgData.data.licenseAnalysis ? this.generateLicenseComplianceHTML(orgData) : `
+                    ${orgData.licenseAnalysis ? this.generateLicenseComplianceHTML(orgData) : `
                     <div class="alert alert-info">
                         <h6>📋 No License Analysis Yet</h6>
                         <p>This organization hasn't been analyzed for license compliance yet. License analysis is performed automatically during the SBOM processing.</p>
@@ -434,7 +434,7 @@ class ViewManager {
      * Generate dependency details HTML
      */
     generateDependencyHTML(dependency, orgData) {
-        const allRepos = orgData.data.allRepositories;
+        const allRepos = orgData.allRepositories;
         const matchingRepos = allRepos.filter(repo => 
             repo.dependencies.some(dep => dep === `${dependency.name}@${dependency.version}`)
         );
@@ -485,7 +485,7 @@ class ViewManager {
                     <h3>📁 Used in Repositories</h3>
                     <div class="repository-list">
                         ${matchingRepos.map(repo => {
-                            const allRepos = orgData.data.allRepositories;
+                            const allRepos = orgData.allRepositories;
                             const originalIndex = allRepos.findIndex(r => r.owner === repo.owner && r.name === repo.name);
                             return `
                                 <div class="repository-item" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${originalIndex}, '${orgData.organization}')" style="cursor: pointer;">
@@ -514,11 +514,11 @@ class ViewManager {
 
                 <div class="detail-section">
                     <h3>⚖️ License Information</h3>
-                    ${orgData.data.licenseAnalysis ? `
+                    ${orgData.licenseAnalysis ? `
                     <div class="license-info">
                         ${(() => {
                             // Find this dependency in the license analysis
-                            const highRiskDep = orgData.data.licenseAnalysis.highRiskDependencies?.find(dep => 
+                            const highRiskDep = orgData.licenseAnalysis.highRiskDependencies?.find(dep => 
                                 dep.name === dependency.name && dep.version === dependency.version
                             );
                             
@@ -542,7 +542,7 @@ class ViewManager {
                                 `;
                             } else {
                                 // Check if it's in the license families
-                                const licenseFamilies = orgData.data.licenseAnalysis.licenseFamilies;
+                                const licenseFamilies = orgData.licenseAnalysis.licenseFamilies;
                                 if (licenseFamilies) {
                                     // Handle both Map and Object structures
                                     const entries = licenseFamilies instanceof Map ? licenseFamilies.entries() : Object.entries(licenseFamilies);
@@ -617,7 +617,7 @@ class ViewManager {
      * Generate repository details HTML
      */
     generateRepositoryHTML(repo, orgData) {
-        const allDeps = orgData.data.allDependencies;
+        const allDeps = orgData.allDependencies;
         const repoDeps = repo.dependencies.map(depKey => {
             const [name, version] = depKey.split('@');
             return { name, version, key: depKey };
@@ -851,8 +851,8 @@ class ViewManager {
 
         try {
             // Get organization data
-            const orgData = storageManager.getOrganizationData(organization);
-            if (!orgData || !orgData.data.allDependencies) {
+            const orgData = storageManager.getFullOrganizationData(organization);
+            if (!orgData || !orgData.allDependencies) {
                 this.showAlert('No dependencies found for analysis', 'warning');
                 return;
             }
@@ -861,7 +861,7 @@ class ViewManager {
             this.showAlert('Running batch vulnerability query...', 'info');
             
             // Convert dependencies to the format expected by OSV service
-            const dependencies = orgData.data.allDependencies.map(dep => ({
+            const dependencies = orgData.allDependencies.map(dep => ({
                 name: dep.name,
                 version: dep.version
             }));
@@ -877,11 +877,11 @@ class ViewManager {
             );
             
             // Update the organization data with new vulnerability analysis
-            orgData.data.vulnerabilityAnalysis = vulnerabilityAnalysis;
+            orgData.vulnerabilityAnalysis = vulnerabilityAnalysis;
             orgData.timestamp = new Date().toISOString();
             
             // Save updated data
-            storageManager.saveAnalysisData(organization, orgData.data);
+            storageManager.saveAnalysisData(organization, orgData);
             
             // Refresh the view
             this.showOrganizationOverview(orgData);
@@ -1319,13 +1319,13 @@ class ViewManager {
         }
         try {
             // Get organization data
-            const orgData = storageManager.getOrganizationData(organization);
-            if (!orgData || !orgData.data.allRepositories) {
+            const orgData = storageManager.getFullOrganizationData(organization);
+            if (!orgData || !orgData.allRepositories) {
                 this.showAlert('No repository data found', 'warning');
                 return;
             }
             // Find the repository
-            const repo = orgData.data.allRepositories.find(r => r.owner === owner && r.name === repoName);
+            const repo = orgData.allRepositories.find(r => r.owner === owner && r.name === repoName);
             if (!repo || !repo.dependencies) {
                 this.showAlert('No dependencies found for this repository', 'warning');
                 return;
@@ -1406,8 +1406,8 @@ class ViewManager {
     async runLicenseComplianceCheck(organization) {
         try {
             // Get organization data
-            const orgData = storageManager.getOrganizationData(organization);
-            if (!orgData || !orgData.data.allDependencies) {
+            const orgData = storageManager.getFullOrganizationData(organization);
+            if (!orgData || !orgData.allDependencies) {
                 this.showAlert('No dependencies found for license analysis', 'warning');
                 return;
             }
@@ -1416,7 +1416,7 @@ class ViewManager {
             this.showAlert('Running license compliance check...', 'info');
             
             // Convert dependencies to the format expected by license processor
-            const dependencies = orgData.data.allDependencies.map(dep => ({
+            const dependencies = orgData.allDependencies.map(dep => ({
                 name: dep.name,
                 version: dep.version,
                 originalPackage: dep.originalPackage || {
@@ -1438,11 +1438,11 @@ class ViewManager {
             
             if (licenseAnalysis) {
                 // Update the organization data with new license analysis
-                orgData.data.licenseAnalysis = licenseAnalysis;
+                orgData.licenseAnalysis = licenseAnalysis;
                 orgData.timestamp = new Date().toISOString();
                 
                 // Save updated data
-                storageManager.saveAnalysisData(organization, orgData.data);
+                storageManager.saveAnalysisData(organization, orgData);
                 
                 // Refresh the view
                 this.showOrganizationOverview(orgData);
@@ -1463,8 +1463,8 @@ class ViewManager {
      */
     getLicenseRepositoriesTooltip(orgData, licenseType) {
         const licenseProcessor = new LicenseProcessor();
-        const repositories = orgData.data.allRepositories;
-        const dependencies = orgData.data.allDependencies;
+        const repositories = orgData.allRepositories;
+        const dependencies = orgData.allDependencies;
         
         let matchingRepos = new Set();
         
@@ -1528,8 +1528,8 @@ class ViewManager {
      */
     getLicenseRepositoriesCount(orgData, licenseType) {
         const licenseProcessor = new LicenseProcessor();
-        const repositories = orgData.data.allRepositories;
-        const dependencies = orgData.data.allDependencies;
+        const repositories = orgData.allRepositories;
+        const dependencies = orgData.allDependencies;
         
         let matchingRepos = new Set();
         
@@ -1580,8 +1580,8 @@ class ViewManager {
      */
     getLicenseRepositoriesList(orgData, licenseType) {
         const licenseProcessor = new LicenseProcessor();
-        const repositories = orgData.data.allRepositories;
-        const dependencies = orgData.data.allDependencies;
+        const repositories = orgData.allRepositories;
+        const dependencies = orgData.allDependencies;
         
         let matchingRepos = new Set();
         
@@ -1631,14 +1631,14 @@ class ViewManager {
      * Show license repositories for a specific license type
      */
     showLicenseRepositories(organization, licenseType) {
-        const orgData = storageManager.getOrganizationData(organization);
-        if (!orgData || !orgData.data.licenseAnalysis) {
+        const orgData = storageManager.getFullOrganizationData(organization);
+        if (!orgData || !orgData.licenseAnalysis) {
             this.showAlert('No license analysis data available', 'warning');
             return;
         }
 
         const licenseProcessor = new LicenseProcessor();
-        const dependencies = orgData.data.allDependencies;
+        const dependencies = orgData.allDependencies;
         const licenseRepos = new Map(); // Map of repo -> dependencies with this license
 
         dependencies.forEach(dep => {
@@ -1673,7 +1673,7 @@ class ViewManager {
 
             if (matches) {
                 // Find repositories that use this dependency
-                orgData.data.allRepositories.forEach(repo => {
+                orgData.allRepositories.forEach(repo => {
                     if (repo.dependencies.some(depKey => depKey === `${dep.name}@${dep.version}`)) {
                         const repoKey = `${repo.owner}/${repo.name}`;
                         if (!licenseRepos.has(repoKey)) {
@@ -1736,7 +1736,7 @@ class ViewManager {
 
             sortedRepos.forEach(([repoKey, deps]) => {
                 const [owner, name] = repoKey.split('/');
-                const repo = orgData.data.allRepositories.find(r => r.owner === owner && r.name === name);
+                const repo = orgData.allRepositories.find(r => r.owner === owner && r.name === name);
                 
                 html += `
                     <div class="license-repo-item">
@@ -1759,7 +1759,7 @@ class ViewManager {
                             ` : ''}
                         </div>
                         <div class="repo-actions">
-                            <button class="btn btn-outline-primary btn-sm" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${orgData.data.allRepositories.findIndex(r => r.owner === owner && r.name === name)}, '${organization}')">
+                            <button class="btn btn-outline-primary btn-sm" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${orgData.allRepositories.findIndex(r => r.owner === owner && r.name === name)}, '${organization}')">
                                 <i class="fas fa-eye me-1"></i>View Repository
                             </button>
                         </div>
@@ -1788,13 +1788,13 @@ class ViewManager {
      * Show detailed view for license conflicts
      */
     showLicenseConflictDetails(organization, conflictIndex) {
-        const orgData = storageManager.getOrganizationData(organization);
-        if (!orgData || !orgData.data.licenseAnalysis || !orgData.data.licenseAnalysis.conflicts) {
+        const orgData = storageManager.getFullOrganizationData(organization);
+        if (!orgData || !orgData.licenseAnalysis || !orgData.licenseAnalysis.conflicts) {
             this.showAlert('No license conflict data available', 'warning');
             return;
         }
 
-        const conflict = orgData.data.licenseAnalysis.conflicts[conflictIndex];
+        const conflict = orgData.licenseAnalysis.conflicts[conflictIndex];
         if (!conflict) {
             this.showAlert('Conflict not found', 'warning');
             return;
@@ -1802,7 +1802,7 @@ class ViewManager {
 
         // Find dependencies involved in this conflict
         const licenseProcessor = new LicenseProcessor();
-        const dependencies = orgData.data.allDependencies;
+        const dependencies = orgData.allDependencies;
         const conflictDeps = [];
         const affectedRepos = new Map();
 
@@ -1822,7 +1822,7 @@ class ViewManager {
                 });
 
                 // Find repositories that use this dependency
-                orgData.data.allRepositories.forEach(repo => {
+                orgData.allRepositories.forEach(repo => {
                     if (repo.dependencies.some(depKey => depKey === `${dep.name}@${dep.version}`)) {
                         const repoKey = `${repo.owner}/${repo.name}`;
                         if (!affectedRepos.has(repoKey)) {
@@ -1908,14 +1908,14 @@ class ViewManager {
      * Show detailed view for high-risk licenses
      */
     showHighRiskLicenseDetails(organization, packageName, version) {
-        const orgData = storageManager.getOrganizationData(organization);
-        if (!orgData || !orgData.data.licenseAnalysis) {
+        const orgData = storageManager.getFullOrganizationData(organization);
+        if (!orgData || !orgData.licenseAnalysis) {
             this.showAlert('No license analysis data available', 'warning');
             return;
         }
 
         // Find the specific high-risk dependency
-        const highRiskDep = orgData.data.licenseAnalysis.highRiskDependencies?.find(dep => 
+        const highRiskDep = orgData.licenseAnalysis.highRiskDependencies?.find(dep => 
             dep.name === packageName && dep.version === version
         );
 
@@ -1926,7 +1926,7 @@ class ViewManager {
 
         // Find repositories that use this dependency
         const affectedRepos = [];
-        orgData.data.allRepositories.forEach(repo => {
+        orgData.allRepositories.forEach(repo => {
             if (repo.dependencies.some(depKey => depKey === `${packageName}@${version}`)) {
                 affectedRepos.push({
                     owner: repo.owner,
@@ -1969,7 +1969,7 @@ class ViewManager {
                                     <span class="badge bg-primary">${repo.totalDependencies} total deps</span>
                                 </div>
                                 <div class="repo-actions">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${orgData.data.allRepositories.findIndex(r => r.owner === repo.owner && r.name === repo.name)}, '${organization}')">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${orgData.allRepositories.findIndex(r => r.owner === repo.owner && r.name === repo.name)}, '${organization}')">
                                         <i class="fas fa-eye me-1"></i>View Repository
                                     </button>
                                 </div>
@@ -2009,13 +2009,13 @@ class ViewManager {
      * Show detailed view for recommendations
      */
     showRecommendationDetails(organization, recommendationIndex) {
-        const orgData = storageManager.getOrganizationData(organization);
-        if (!orgData || !orgData.data.licenseAnalysis || !orgData.data.licenseAnalysis.recommendations) {
+        const orgData = storageManager.getFullOrganizationData(organization);
+        if (!orgData || !orgData.licenseAnalysis || !orgData.licenseAnalysis.recommendations) {
             this.showAlert('No recommendation data available', 'warning');
             return;
         }
 
-        const recommendation = orgData.data.licenseAnalysis.recommendations[recommendationIndex];
+        const recommendation = orgData.licenseAnalysis.recommendations[recommendationIndex];
         if (!recommendation) {
             this.showAlert('Recommendation not found', 'warning');
             return;
@@ -2023,7 +2023,7 @@ class ViewManager {
 
         // Find dependencies related to this recommendation
         const licenseProcessor = new LicenseProcessor();
-        const dependencies = orgData.data.allDependencies;
+        const dependencies = orgData.allDependencies;
         const relatedDeps = [];
         const affectedRepos = new Map();
 
@@ -2052,7 +2052,7 @@ class ViewManager {
                     // For license conflicts
                     if (recommendation.message.includes('conflicts')) {
                         // Check if this dependency is involved in any conflicts
-                        const conflicts = orgData.data.licenseAnalysis.conflicts || [];
+                        const conflicts = orgData.licenseAnalysis.conflicts || [];
                         conflicts.forEach(conflict => {
                             if (conflict.licenses.includes(licenseInfo.license)) {
                                 isRelated = true;
@@ -2076,7 +2076,7 @@ class ViewManager {
                 });
 
                 // Find repositories that use this dependency
-                orgData.data.allRepositories.forEach(repo => {
+                orgData.allRepositories.forEach(repo => {
                     if (repo.dependencies.some(depKey => depKey === `${dep.name}@${dep.version}`)) {
                         const repoKey = `${repo.owner}/${repo.name}`;
                         if (!affectedRepos.has(repoKey)) {
@@ -2168,7 +2168,7 @@ class ViewManager {
         
         if (panel.style.display === 'none') {
             // Show panel
-            const orgData = storageManager.getOrganizationData(organization);
+            const orgData = storageManager.getFullOrganizationData(organization);
             if (!orgData) {
                 this.showAlert('Organization data not found', 'error');
                 return;
@@ -2207,11 +2207,11 @@ class ViewManager {
                     <div class="repository-list">
                         ${repositories.map(repo => {
                             const [owner, name] = repo.split('/');
-                            const repoIndex = orgData.data.allRepositories.findIndex(r => r.owner === owner && r.name === name);
+                            const repoIndex = orgData.allRepositories.findIndex(r => r.owner === owner && r.name === name);
                             return `
                                 <div class="repository-item" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${repoIndex}, '${organization}')" style="cursor: pointer;">
                                     <div class="repo-name">${repo}</div>
-                                    <div class="repo-deps">${orgData.data.allRepositories[repoIndex]?.totalDependencies || 0} total deps</div>
+                                    <div class="repo-deps">${orgData.allRepositories[repoIndex]?.totalDependencies || 0} total deps</div>
                                 </div>
                             `;
                         }).join('')}
@@ -2258,7 +2258,7 @@ class ViewManager {
      */
     getLicenseDependenciesList(orgData, licenseType) {
         const licenseProcessor = new LicenseProcessor();
-        const dependencies = orgData.data.allDependencies;
+        const dependencies = orgData.allDependencies;
         const matchingDeps = [];
         
         dependencies.forEach(dep => {
@@ -2308,13 +2308,13 @@ class ViewManager {
      * Show license conflict details in a popout modal
      */
     showLicenseConflictDetailsModal(organization, conflictIndex) {
-        const orgData = storageManager.getOrganizationData(organization);
-        if (!orgData || !orgData.data.licenseAnalysis || !orgData.data.licenseAnalysis.conflicts) {
+        const orgData = storageManager.getFullOrganizationData(organization);
+        if (!orgData || !orgData.licenseAnalysis || !orgData.licenseAnalysis.conflicts) {
             this.showAlert('No license conflict data available', 'warning');
             return;
         }
 
-        const conflict = orgData.data.licenseAnalysis.conflicts[conflictIndex];
+        const conflict = orgData.licenseAnalysis.conflicts[conflictIndex];
         if (!conflict) {
             this.showAlert('Conflict not found', 'warning');
             return;
@@ -2322,7 +2322,7 @@ class ViewManager {
 
         // Find dependencies involved in this conflict
         const licenseProcessor = new LicenseProcessor();
-        const dependencies = orgData.data.allDependencies;
+        const dependencies = orgData.allDependencies;
         const conflictDeps = [];
         const affectedRepos = new Map();
 
@@ -2342,7 +2342,7 @@ class ViewManager {
                 });
 
                 // Find repositories that use this dependency
-                orgData.data.allRepositories.forEach(repo => {
+                orgData.allRepositories.forEach(repo => {
                     if (repo.dependencies.some(depKey => depKey === `${dep.name}@${dep.version}`)) {
                         const repoKey = `${repo.owner}/${repo.name}`;
                         if (!affectedRepos.has(repoKey)) {
@@ -2444,14 +2444,14 @@ class ViewManager {
      * Show high-risk license details in a popout modal
      */
     showHighRiskLicenseDetailsModal(organization, packageName, version) {
-        const orgData = storageManager.getOrganizationData(organization);
-        if (!orgData || !orgData.data.licenseAnalysis) {
+        const orgData = storageManager.getFullOrganizationData(organization);
+        if (!orgData || !orgData.licenseAnalysis) {
             this.showAlert('No license analysis data available', 'warning');
             return;
         }
 
         // Find the specific high-risk dependency
-        const highRiskDep = orgData.data.licenseAnalysis.highRiskDependencies?.find(dep => 
+        const highRiskDep = orgData.licenseAnalysis.highRiskDependencies?.find(dep => 
             dep.name === packageName && dep.version === version
         );
 
@@ -2462,7 +2462,7 @@ class ViewManager {
 
         // Find repositories that use this dependency
         const affectedRepos = [];
-        orgData.data.allRepositories.forEach(repo => {
+        orgData.allRepositories.forEach(repo => {
             if (repo.dependencies.some(depKey => depKey === `${packageName}@${version}`)) {
                 affectedRepos.push({
                     owner: repo.owner,
@@ -2503,7 +2503,7 @@ class ViewManager {
                                                 <span class="badge bg-primary">${repo.totalDependencies} total deps</span>
                                             </div>
                                             <div class="repo-actions">
-                                                <button class="btn btn-outline-primary btn-sm" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${orgData.data.allRepositories.findIndex(r => r.owner === repo.owner && r.name === repo.name)}, '${organization}')">
+                                                <button class="btn btn-outline-primary btn-sm" onclick="viewManager.showRepositoryDetailsFromAllReposIndex(${orgData.allRepositories.findIndex(r => r.owner === repo.owner && r.name === repo.name)}, '${organization}')">
                                                     <i class="fas fa-eye me-1"></i>View Repository
                                                 </button>
                                             </div>
@@ -2561,30 +2561,30 @@ class ViewManager {
      * Generate License Compliance HTML (standalone section)
      */
     generateLicenseComplianceHTML(orgData) {
-        if (!orgData || !orgData.data) {
+        if (!orgData || !orgData) {
             return `<div class="alert alert-danger">No organization data available.</div>`;
         }
-        if (!orgData.data.licenseAnalysis) {
+        if (!orgData.licenseAnalysis) {
             return `<div class="alert alert-info">No license analysis found for this organization.</div>`;
         }
         
         // Calculate combined copyleft (includes LGPL)
-        const copyleftCount = (orgData.data.licenseAnalysis.summary?.categoryBreakdown?.copyleft || 0) + 
-                             (orgData.data.licenseAnalysis.summary?.categoryBreakdown?.lgpl || 0);
+        const copyleftCount = (orgData.licenseAnalysis.summary?.categoryBreakdown?.copyleft || 0) + 
+                             (orgData.licenseAnalysis.summary?.categoryBreakdown?.lgpl || 0);
         
         return `
         <div class="license-stats">
             <div class="license-stat-card total clickable-license-card license-card" 
                  onclick="viewManager.toggleLicenseRepositoriesPanel('${orgData.organization}', 'total')">
                 <h4>📊 Total</h4>
-                <div class="license-number">${orgData.data.licenseAnalysis.summary?.licensedDependencies || 0}</div>
+                <div class="license-number">${orgData.licenseAnalysis.summary?.licensedDependencies || 0}</div>
                 <div class="license-detail">licensed deps</div>
                 <div class="license-tooltip">
                     <div class="license-tooltip-content">
                         <div class="license-tooltip-header">📊 All Licensed Dependencies</div>
                         <div class="license-tooltip-stats">
                             <div class="license-tooltip-stat">
-                                <span class="license-tooltip-stat-value">${orgData.data.licenseAnalysis.summary?.licensedDependencies || 0}</span>
+                                <span class="license-tooltip-stat-value">${orgData.licenseAnalysis.summary?.licensedDependencies || 0}</span>
                                 <span class="license-tooltip-stat-label">Dependencies</span>
                             </div>
                             <div class="license-tooltip-stat">
@@ -2641,14 +2641,14 @@ class ViewManager {
             <div class="license-stat-card proprietary clickable-license-card license-card" 
                  onclick="viewManager.toggleLicenseRepositoriesPanel('${orgData.organization}', 'proprietary')">
                 <h4>🔒 Proprietary</h4>
-                <div class="license-number">${orgData.data.licenseAnalysis.summary?.categoryBreakdown?.proprietary || 0}</div>
+                <div class="license-number">${orgData.licenseAnalysis.summary?.categoryBreakdown?.proprietary || 0}</div>
                 <div class="license-detail">medium risk</div>
                 <div class="license-tooltip">
                     <div class="license-tooltip-content">
                         <div class="license-tooltip-header">🔒 Proprietary Licenses</div>
                         <div class="license-tooltip-stats">
                             <div class="license-tooltip-stat">
-                                <span class="license-tooltip-stat-value">${orgData.data.licenseAnalysis.summary?.categoryBreakdown?.proprietary || 0}</span>
+                                <span class="license-tooltip-stat-value">${orgData.licenseAnalysis.summary?.categoryBreakdown?.proprietary || 0}</span>
                                 <span class="license-tooltip-stat-label">Dependencies</span>
                             </div>
                             <div class="license-tooltip-stat">
@@ -2673,14 +2673,14 @@ class ViewManager {
             <div class="license-stat-card unknown clickable-license-card license-card" 
                  onclick="viewManager.toggleLicenseRepositoriesPanel('${orgData.organization}', 'unknown')">
                 <h4>❓ Unknown</h4>
-                <div class="license-number">${orgData.data.licenseAnalysis.summary?.categoryBreakdown?.unknown || 0}</div>
+                <div class="license-number">${orgData.licenseAnalysis.summary?.categoryBreakdown?.unknown || 0}</div>
                 <div class="license-detail">high risk</div>
                 <div class="license-tooltip">
                     <div class="license-tooltip-content">
                         <div class="license-tooltip-header">❓ Unknown Licenses</div>
                         <div class="license-tooltip-stats">
                             <div class="license-tooltip-stat">
-                                <span class="license-tooltip-stat-value">${orgData.data.licenseAnalysis.summary?.categoryBreakdown?.unknown || 0}</span>
+                                <span class="license-tooltip-stat-value">${orgData.licenseAnalysis.summary?.categoryBreakdown?.unknown || 0}</span>
                                 <span class="license-tooltip-stat-label">Dependencies</span>
                             </div>
                             <div class="license-tooltip-stat">
@@ -2705,14 +2705,14 @@ class ViewManager {
             <div class="license-stat-card unlicensed clickable-license-card license-card" 
                  onclick="viewManager.toggleLicenseRepositoriesPanel('${orgData.organization}', 'unlicensed')">
                 <h4>🚨 Unlicensed</h4>
-                <div class="license-number">${orgData.data.licenseAnalysis.summary?.unlicensedDependencies || 0}</div>
+                <div class="license-number">${orgData.licenseAnalysis.summary?.unlicensedDependencies || 0}</div>
                 <div class="license-detail">unlicensed deps</div>
                 <div class="license-tooltip">
                     <div class="license-tooltip-content">
                         <div class="license-tooltip-header">🚨 Unlicensed Dependencies</div>
                         <div class="license-tooltip-stats">
                             <div class="license-tooltip-stat">
-                                <span class="license-tooltip-stat-value">${orgData.data.licenseAnalysis.summary?.unlicensedDependencies || 0}</span>
+                                <span class="license-tooltip-stat-value">${orgData.licenseAnalysis.summary?.unlicensedDependencies || 0}</span>
                                 <span class="license-tooltip-stat-label">Dependencies</span>
                             </div>
                             <div class="license-tooltip-stat">
@@ -2749,11 +2749,11 @@ class ViewManager {
             </div>
         </div>
         
-        ${orgData.data.licenseAnalysis.conflicts && orgData.data.licenseAnalysis.conflicts.length > 0 ? `
+        ${orgData.licenseAnalysis.conflicts && orgData.licenseAnalysis.conflicts.length > 0 ? `
         <div class="license-conflicts">
             <h4>🚨 License Conflicts</h4>
             <div class="license-conflicts-list">
-                ${orgData.data.licenseAnalysis.conflicts.slice(0, 5).map((conflict, index) => `
+                ${orgData.licenseAnalysis.conflicts.slice(0, 5).map((conflict, index) => `
                     <div class="license-conflict-item">
                         <div class="conflict-info">
                             <div class="conflict-type">${conflict.type}</div>
@@ -2773,11 +2773,11 @@ class ViewManager {
         </div>
         ` : ''}
         
-        ${orgData.data.licenseAnalysis.highRiskDependencies && orgData.data.licenseAnalysis.highRiskDependencies.length > 0 ? `
+        ${orgData.licenseAnalysis.highRiskDependencies && orgData.licenseAnalysis.highRiskDependencies.length > 0 ? `
         <div class="high-risk-licenses">
             <h4>⚠️ High-Risk Licenses</h4>
             <div class="high-risk-list">
-                ${orgData.data.licenseAnalysis.highRiskDependencies.slice(0, 10).map((dep, index) => `
+                ${orgData.licenseAnalysis.highRiskDependencies.slice(0, 10).map((dep, index) => `
                     <div class="high-risk-item">
                         <div class="risk-info">
                             <div class="risk-name">${dep.name}@${dep.version}</div>
@@ -2800,11 +2800,11 @@ class ViewManager {
         </div>
         ` : ''}
         
-        ${orgData.data.licenseAnalysis.recommendations && orgData.data.licenseAnalysis.recommendations.length > 0 ? `
+        ${orgData.licenseAnalysis.recommendations && orgData.licenseAnalysis.recommendations.length > 0 ? `
         <div class="license-recommendations">
             <h4>💡 Recommendations</h4>
             <div class="recommendations-list">
-                ${orgData.data.licenseAnalysis.recommendations.map((rec, index) => `
+                ${orgData.licenseAnalysis.recommendations.map((rec, index) => `
                     <div class="recommendation-item ${rec.type}">
                         <div class="rec-priority">${rec.priority}</div>
                         <div class="rec-message">${rec.message}</div>
@@ -2823,11 +2823,11 @@ class ViewManager {
 
     generateDependencyOverviewHTML(orgData) {
         // Extracted from generateOverviewHTML: stats, category breakdown, language stats, top deps, all deps
-        const stats = orgData.data.statistics;
-        const topDeps = orgData.data.topDependencies;
-        const allDeps = orgData.data.allDependencies;
-        const categoryStats = orgData.data.categoryStats;
-        const languageStats = orgData.data.languageStats;
+        const stats = orgData.statistics;
+        const topDeps = orgData.topDependencies;
+        const allDeps = orgData.allDependencies;
+        const categoryStats = orgData.categoryStats;
+        const languageStats = orgData.languageStats;
         const isCombinedView = orgData.organization === 'All Organizations Combined';
         return `
             <div class="stats-grid">
@@ -2939,7 +2939,7 @@ class ViewManager {
                                     <button class="btn btn-sm btn-outline-primary" onclick="viewManager.queryVulnerabilityForDependency('${dep.name}', '${dep.version}', '${orgData.organization}')" title="Query vulnerabilities">
                                         <i class="fas fa-shield-alt"></i>
                                     </button>
-                                    ${!orgData.data.vulnerabilityAnalysis ? `
+                                    ${!orgData.vulnerabilityAnalysis ? `
                                     <button class="btn btn-sm btn-outline-success" onclick="viewManager.quickScanDependency('${dep.name}', '${dep.version}', '${orgData.organization}')" title="Quick scan for vulnerabilities">
                                         <i class="fas fa-bolt"></i>
                                     </button>
@@ -2977,7 +2977,7 @@ class ViewManager {
                                 <button class="btn btn-sm btn-outline-primary" onclick="viewManager.queryVulnerabilityForDependency('${dep.name}', '${dep.version}', '${orgData.organization}')" title="Query vulnerabilities">
                                     <i class="fas fa-shield-alt"></i>
                                 </button>
-                                ${!orgData.data.vulnerabilityAnalysis ? `
+                                ${!orgData.vulnerabilityAnalysis ? `
                                 <button class="btn btn-sm btn-outline-success" onclick="viewManager.quickScanDependency('${dep.name}', '${dep.version}', '${orgData.organization}')" title="Quick scan for vulnerabilities">
                                     <i class="fas fa-bolt"></i>
                                 </button>
@@ -2997,7 +2997,7 @@ class ViewManager {
         <div id="vulnerability-section" class="independent-section">
             <div class="vulnerability-breakdown">
                 <h3>🔒 Vulnerability Analysis</h3>
-                ${orgData.data.vulnerabilityAnalysis ? `
+                ${orgData.vulnerabilityAnalysis ? `
                 <div class="vulnerability-actions mb-3">
                     <button class="btn btn-primary btn-sm" onclick="viewManager.runBatchVulnerabilityQuery('${orgData.organization}')">
                         <i class="fas fa-search"></i> Re-run Batch Vulnerability Query
@@ -3012,40 +3012,40 @@ class ViewManager {
                 <div class="vulnerability-stats">
                     <div class="vuln-stat-card critical">
                         <h4>🚨 Critical</h4>
-                        <div class="vuln-number">${orgData.data.vulnerabilityAnalysis.criticalVulnerabilities || 0}</div>
+                        <div class="vuln-number">${orgData.vulnerabilityAnalysis.criticalVulnerabilities || 0}</div>
                         <div class="vuln-detail">vulnerabilities</div>
                     </div>
                     <div class="vuln-stat-card high">
                         <h4>⚠️ High</h4>
-                        <div class="vuln-number">${orgData.data.vulnerabilityAnalysis.highVulnerabilities || 0}</div>
+                        <div class="vuln-number">${orgData.vulnerabilityAnalysis.highVulnerabilities || 0}</div>
                         <div class="vuln-detail">vulnerabilities</div>
                     </div>
                     <div class="vuln-stat-card medium">
                         <h4>⚡ Medium</h4>
-                        <div class="vuln-number">${orgData.data.vulnerabilityAnalysis.mediumVulnerabilities || 0}</div>
+                        <div class="vuln-number">${orgData.vulnerabilityAnalysis.mediumVulnerabilities || 0}</div>
                         <div class="vuln-detail">vulnerabilities</div>
                     </div>
                     <div class="vuln-stat-card low">
                         <h4>ℹ️ Low</h4>
-                        <div class="vuln-number">${orgData.data.vulnerabilityAnalysis.lowVulnerabilities || 0}</div>
+                        <div class="vuln-number">${orgData.vulnerabilityAnalysis.lowVulnerabilities || 0}</div>
                         <div class="vuln-detail">vulnerabilities</div>
                     </div>
                     <div class="vuln-stat-card total">
                         <h4>📊 Total</h4>
-                        <div class="vuln-number">${orgData.data.vulnerabilityAnalysis.vulnerablePackages || 0}</div>
+                        <div class="vuln-number">${orgData.vulnerabilityAnalysis.vulnerablePackages || 0}</div>
                         <div class="vuln-detail">vulnerable packages</div>
                     </div>
                     <div class="vuln-stat-card rate">
                         <h4>📈 Rate</h4>
-                        <div class="vuln-number">${orgData.data.vulnerabilityAnalysis.vulnerabilityRate || 0}%</div>
+                        <div class="vuln-number">${orgData.vulnerabilityAnalysis.vulnerabilityRate || 0}%</div>
                         <div class="vuln-detail">vulnerability rate</div>
                     </div>
                 </div>
-                ${orgData.data.vulnerabilityAnalysis.vulnerableDependencies && orgData.data.vulnerabilityAnalysis.vulnerableDependencies.length > 0 ? `
+                ${orgData.vulnerabilityAnalysis.vulnerableDependencies && orgData.vulnerabilityAnalysis.vulnerableDependencies.length > 0 ? `
                 <div class="vulnerable-dependencies">
                     <h4>🚨 Vulnerable Dependencies</h4>
                     <div class="vulnerable-deps-list">
-                        ${orgData.data.vulnerabilityAnalysis.vulnerableDependencies.slice(0, 10).map(dep => `
+                        ${orgData.vulnerabilityAnalysis.vulnerableDependencies.slice(0, 10).map(dep => `
                             <div class="vulnerable-dep-item">
                                 <div class="vuln-dep-info">
                                     <div class="vuln-dep-name">${dep.name}@${dep.version}</div>

@@ -394,6 +394,7 @@ class SingleRepoAnalyzer {
         this.displayDependenciesOverview(analysisData);
         this.displayVulnerabilityAnalysis(analysisData);
         this.displayLicenseCompliance(analysisData);
+        this.displayAuthorAnalysis(analysisData);
         this.displayDependencyDetails(analysisData);
         
         this.showResults(true);
@@ -846,6 +847,93 @@ class SingleRepoAnalyzer {
         if (this.allLicenseConflicts) {
             this.renderLicenseConflicts();
         }
+    }
+
+    /**
+     * Display author analysis
+     */
+    displayAuthorAnalysis(analysisData) {
+        const card = document.getElementById('authorAnalysisCard');
+        const container = document.getElementById('authorAnalysisContent');
+        
+        if (!card || !container) return;
+        
+        const authorAnalysis = analysisData.authorAnalysis;
+        
+        if (!authorAnalysis || authorAnalysis.length === 0) {
+            card.style.display = 'none';
+            return;
+        }
+        
+        // Show the card
+        card.style.display = 'block';
+        
+        // Display top 20 authors
+        const topAuthors = authorAnalysis.slice(0, 20);
+        
+        let html = `
+            <div class="mb-3">
+                <p class="text-muted">
+                    Found <strong>${authorAnalysis.length}</strong> unique authors across your dependencies.
+                    ${authorAnalysis.length > 20 ? `Showing top 20.` : ''}
+                </p>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Author</th>
+                            <th>Packages</th>
+                            <th>Ecosystem</th>
+                            <th>Direct/Transitive</th>
+                            <th>% of Total</th>
+                            <th>Links</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        topAuthors.forEach((author, index) => {
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>
+                        <strong>${this.escapeHtml(author.displayName || author.author)}</strong>
+                        ${author.email ? `<br><small class="text-muted">${this.escapeHtml(author.email)}</small>` : ''}
+                    </td>
+                    <td><span class="badge bg-primary">${author.packageCount}</span></td>
+                    <td><span class="badge bg-secondary">${author.ecosystem}</span></td>
+                    <td>
+                        <small>
+                            <span class="badge bg-success">${author.directCount}</span> direct
+                            <span class="badge bg-info">${author.transitiveCount}</span> transitive
+                        </small>
+                    </td>
+                    <td>${author.percentage}%</td>
+                    <td>
+                        ${author.links && author.links.length > 0 ? 
+                            author.links.map(link => `
+                                <a href="${link.url}" target="_blank" rel="noopener noreferrer" 
+                                   class="btn btn-sm btn-outline-primary me-1" title="${link.type}">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            `).join('') 
+                            : '<span class="text-muted">-</span>'
+                        }
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        container.innerHTML = html;
     }
 
     /**
@@ -4036,6 +4124,16 @@ class SingleRepoAnalyzer {
                 this.rateLimitTimer = null;
             }
         }, 1000);
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**

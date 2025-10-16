@@ -1388,3 +1388,310 @@ code {
 .sortable:hover {
     background-color: rgba(128, 128, 128, 0.1);
 }
+
+/* =================================
+   Dependency Overview Page Styles
+   ================================= */
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--cyfinoid-card-bg);
+    border: 1px solid rgba(80, 200, 120, 0.2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    border-color: var(--cyfinoid-accent);
+    box-shadow: 0 4px 12px rgba(80, 200, 120, 0.15);
+    transform: translateY(-2px);
+}
+
+.stat-card h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--cyfinoid-text);
+    margin-bottom: 0.75rem;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--cyfinoid-accent);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.stat-detail {
+    font-size: 0.875rem;
+    color: var(--cyfinoid-text-secondary);
+}
+
+/* Category Breakdown */
+.category-breakdown,
+.language-breakdown {
+    background: var(--cyfinoid-card-bg);
+    border: 1px solid rgba(80, 200, 120, 0.2);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.category-breakdown h3,
+.language-breakdown h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--cyfinoid-text);
+    margin-bottom: 1.5rem;
+}
+
+.category-grid,
+.language-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.category-card,
+.language-card {
+    background: var(--cyfinoid-black);
+    border: 2px solid rgba(80, 200, 120, 0.15);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.category-card:hover,
+.language-card:hover {
+    border-color: var(--cyfinoid-accent);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(80, 200, 120, 0.2);
+}
+
+.category-card h4,
+.language-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cyfinoid-text);
+    margin-bottom: 0.75rem;
+}
+
+.category-number,
+.language-number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--cyfinoid-accent);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.category-detail,
+.language-detail {
+    font-size: 0.875rem;
+    color: var(--cyfinoid-text-secondary);
+}
+
+/* View Sections */
+.view-sections {
+    margin-top: 2rem;
+}
+
+.view-sections .section {
+    background: var(--cyfinoid-card-bg);
+    border: 1px solid rgba(80, 200, 120, 0.2);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.view-sections .section h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--cyfinoid-text);
+    margin-bottom: 1.5rem;
+}
+
+/* Filter Buttons */
+.filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-buttons .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+}
+
+/* Dependency Grid */
+.dependency-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.dependency-item,
+.dependency-card {
+    background: var(--cyfinoid-black);
+    border: 2px solid rgba(80, 200, 120, 0.15);
+    border-radius: 10px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.dependency-item:hover,
+.dependency-card:hover {
+    border-color: var(--cyfinoid-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(80, 200, 120, 0.2);
+}
+
+.dep-content {
+    cursor: pointer;
+    flex: 1;
+}
+
+.dep-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--cyfinoid-accent);
+    margin-bottom: 0.5rem;
+    word-break: break-word;
+}
+
+.dep-version {
+    font-size: 0.875rem;
+    color: var(--cyfinoid-text);
+    margin-bottom: 0.5rem;
+    font-family: 'Courier New', monospace;
+}
+
+.dep-count {
+    font-size: 0.875rem;
+    color: var(--cyfinoid-text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.dep-category {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(80, 200, 120, 0.1);
+    color: var(--cyfinoid-accent);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.dep-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.dep-actions .btn {
+    flex: 1;
+    min-width: 40px;
+    padding: 0.5rem;
+}
+
+/* All Dependencies Section */
+.all-dependencies {
+    background: var(--cyfinoid-card-bg);
+    border: 1px solid rgba(80, 200, 120, 0.2);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.all-dependencies h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--cyfinoid-text);
+    margin-bottom: 1.5rem;
+}
+
+/* Search Box */
+.search-box {
+    margin-bottom: 1.5rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(80, 200, 120, 0.2);
+    border-radius: 8px;
+    background: var(--cyfinoid-black);
+    color: var(--cyfinoid-text);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--cyfinoid-accent);
+    box-shadow: 0 0 0 3px rgba(80, 200, 120, 0.1);
+}
+
+.search-box input::placeholder {
+    color: var(--cyfinoid-text-secondary);
+}
+
+/* Category-specific colors */
+.dependency-item.code,
+.dependency-card.code {
+    border-left: 4px solid #3b82f6;
+}
+
+.dependency-item.workflow,
+.dependency-card.workflow {
+    border-left: 4px solid #8b5cf6;
+}
+
+.dependency-item.infrastructure,
+.dependency-card.infrastructure {
+    border-left: 4px solid #f59e0b;
+}
+
+.dependency-item.unknown,
+.dependency-card.unknown {
+    border-left: 4px solid #6b7280;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .category-grid,
+    .language-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dependency-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .filter-buttons {
+        flex-direction: column;
+    }
+    
+    .filter-buttons .btn {
+        width: 100%;
+    }
+}

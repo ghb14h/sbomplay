@@ -304,6 +304,7 @@ class SBOMPlayApp {
         const progressText = document.getElementById('progressText');
         
         if (progressSection) {
+            progressSection.classList.remove('hidden');
             progressSection.style.display = 'block';
             progressText.innerHTML = `
                 <div class="alert alert-warning mb-0">
@@ -500,7 +501,10 @@ class SBOMPlayApp {
         const resultsSection = document.getElementById('resultsSection');
         
         if (analyzeBtn) analyzeBtn.disabled = true;
-        if (progressSection) progressSection.style.display = 'block';
+        if (progressSection) {
+            progressSection.classList.remove('hidden');
+            progressSection.style.display = 'block';
+        }
         if (resultsSection) resultsSection.style.display = 'none';
         
         this.updateProgress(0, 'Initializing analysis...');
@@ -1163,7 +1167,10 @@ class SBOMPlayApp {
         const partialDataInfo = document.getElementById('partialDataInfo');
         
         if (analyzeBtn) analyzeBtn.disabled = false;
-        if (progressSection) progressSection.style.display = 'none';
+        if (progressSection) {
+            progressSection.classList.add('hidden');
+            progressSection.style.display = 'none';
+        }
         if (partialDataInfo) partialDataInfo.style.display = 'none';
     }
 

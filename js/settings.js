@@ -269,7 +269,7 @@ class SettingsApp {
                 
                 let removedCount = 0;
                 for (const org of toRemove) {
-                    if (await this.storageManager.removeOrganizationData(org.name)) {
+                    if (await this.storageManager.removeOrganizationData(org.organization)) {
                         removedCount++;
                     }
                 }
@@ -355,8 +355,8 @@ class SettingsApp {
         // Add combined view if there are multiple organizations
         if (organizations.length > 1) {
             const combinedStats = organizations.reduce((acc, org) => {
-                acc.repositories += org.repositories;
-                acc.dependencies += org.dependencies;
+                acc.repositories += org.summary?.totalRepositories || 0;
+                acc.dependencies += org.summary?.totalDependencies || 0;
                 return acc;
             }, { repositories: 0, dependencies: 0 });
 
@@ -402,18 +402,18 @@ class SettingsApp {
                 
                 html += `
                     <tr>
-                        <td><strong>${org.name}</strong></td>
-                        <td><span class="badge bg-primary">${org.repositories}</span></td>
-                        <td><span class="badge bg-success">${org.dependencies}</span></td>
+                        <td><strong>${org.organization}</strong></td>
+                        <td><span class="badge bg-primary">${org.summary?.totalRepositories || 0}</span></td>
+                        <td><span class="badge bg-success">${org.summary?.totalDependencies || 0}</span></td>
                         <td><small>${date} ${time}</small></td>
                         <td>
-                            <button class="btn btn-outline-primary btn-sm" onclick="settingsApp.showDetailedViewForOrg('${org.name}')">
+                            <button class="btn btn-outline-primary btn-sm" onclick="settingsApp.showDetailedViewForOrg('${org.organization}')">
                                 <i class="fas fa-eye me-1"></i>View
                             </button>
-                            <button class="btn btn-outline-info btn-sm" onclick="settingsApp.debugOrganizationData('${org.name}')">
+                            <button class="btn btn-outline-info btn-sm" onclick="settingsApp.debugOrganizationData('${org.organization}')">
                                 <i class="fas fa-bug me-1"></i>Debug
                             </button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="settingsApp.removeOrganizationData('${org.name}')">
+                            <button class="btn btn-outline-danger btn-sm" onclick="settingsApp.removeOrganizationData('${org.organization}')">
                                 <i class="fas fa-trash me-1"></i>Remove
                             </button>
                         </td>
