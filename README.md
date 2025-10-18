@@ -4,27 +4,41 @@ A web-based tool for analyzing Software Bill of Materials (SBOM) data from GitHu
 
 ## Features
 
+### Automatic 5-Phase Analysis
+When you run an analysis, all 5 phases execute automatically in sequence:
+1. **SBOM Extraction** - Fetches dependency data from GitHub repositories
+2. **Transitive Dependencies** - Identifies indirect dependencies via deps.dev
+3. **Vulnerability Scanning** - Checks all dependencies against OSV database
+4. **License Compliance** - Analyzes license compatibility and conflicts
+5. **Author Analysis** - Identifies package authors across 63 ecosystems
+
+### Core Features
 - **Organization & User Analysis**: Analyze SBOM data from GitHub organizations and users
-- **Single Repository Analysis**: Dedicated tool for deep-dive analysis of individual repositories with enhanced dependency tracking
-- **Dependency Tracking**: Track dependency usage across repositories with transitive dependency detection
-- **Vulnerability Analysis**: Integration with OSV database for security vulnerability detection
-- **License Compliance**: Automated license compatibility checking and conflict detection
+- **Single Repository Analysis**: Deep-dive analysis of individual repositories
+- **Dependency Tracking**: Track dependency usage with transitive dependency detection
+- **Vulnerability Analysis**: Integration with OSV database (automatic in Phase 3)
+- **License Compliance**: Automated license compatibility checking (automatic in Phase 4)
+- **Author Analysis**: Track package authors across ecosystems (automatic in Phase 5)
 - **Version Drift Detection**: Track outdated dependencies with deps.dev integration
-- **Distribution Reports**: Generate comprehensive dependency distribution reports
 - **Export & Import**: Export analysis results as JSON
 - **Rate Limit Handling**: Automatic rate limit detection and recovery
-- **Multi-Organization Storage**: Keep data for all analyzed organizations until manually cleared
-- **Cyfinoid Branding**: Professional dark/light theme with the Sen font family
-- **Theme Toggle**: Switch between dark and light modes on all pages
-- **Persistent Storage**: All analysis data is saved and persists between sessions
+- **Multi-Organization Storage**: Keep data for all analyzed organizations
+- **Theme Toggle**: Switch between dark and light modes
+- **Persistent Storage**: IndexedDB-based unlimited storage
 
 ## Quick Start
 
 1. Open `index.html` in your web browser
 2. Optionally enter a GitHub Personal Access Token for better rate limits
-3. Enter an organization name or username to analyze
-4. Click "Analyze Organization or User" to start the analysis
-5. View results and export data as needed
+3. Enter an organization name, username, or repository URL to analyze
+4. Click "Start Analysis" - the system automatically runs 5 phases:
+   - **Phase 1 (0-20%):** Extract SBOM data from repositories
+   - **Phase 2 (20-40%):** Extract transitive dependencies
+   - **Phase 3 (40-60%):** Analyze vulnerabilities using OSV database
+   - **Phase 4 (60-80%):** Analyze license compliance
+   - **Phase 5 (80-95%):** Analyze package authors across ecosystems
+5. View complete results across all pages (stats, deps, vuln, license, authors)
+6. Export data as JSON if needed
 
 ## Development & Deployment
 

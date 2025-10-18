@@ -27,8 +27,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-lg-auto">
-                    <a class="nav-link" href="index.html">Organization Analysis</a>
-                    <a class="nav-link" href="singlerepo.html">Single Repository</a>
+                    <a class="nav-link" href="index.html">Analysis</a>
                     <a class="nav-link" href="stats.html">Stats</a>
                     <a class="nav-link" href="license-compliance.html">License</a>
                     <a class="nav-link" href="vuln.html">Vulnerabilities</a>
@@ -90,8 +89,105 @@
         <!-- Hidden organization input for analysis -->
         <input type="hidden" id="orgName" value="">
         
-        <div id="dependency-overview-page">
-            <!-- Dependency Overview content will be rendered here by JS -->
+        <!-- Dependency Details Table -->
+        <div id="dependency-details-section" class="card mb-4 hidden">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Dependency Details
+                </h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <small class="text-muted" id="dependencyCount">0 dependencies</small>
+                    <select class="form-select form-select-sm w-auto" id="dependencyPageSize">
+                        <option value="10">10 per page</option>
+                        <option value="25" selected>25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <!-- Filtering Controls -->
+                <div class="p-3 border-bottom">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label small">Search Package</label>
+                            <input type="text" class="form-control form-control-sm" id="packageNameFilter" placeholder="Filter by package name...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Ecosystem</label>
+                            <select class="form-select form-select-sm" id="ecosystemFilter">
+                                <option value="">All Ecosystems</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Dependency Type</label>
+                            <select class="form-select form-select-sm" id="dependencyTypeFilter">
+                                <option value="">All Types</option>
+                                <option value="direct">Direct Only</option>
+                                <option value="transitive">Transitive Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Vulnerabilities</label>
+                            <select class="form-select form-select-sm" id="vulnerabilityFilter">
+                                <option value="">All Packages</option>
+                                <option value="vulnerable">Has Vulnerabilities</option>
+                                <option value="clean">Clean</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Language</label>
+                            <select class="form-select form-select-sm" id="languageFilter">
+                                <option value="">All Languages</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small">&nbsp;</label>
+                            <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearDependencyFilters()" title="Clear all filters">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="dependencyTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="sortable" data-sort="name">
+                                    Package Name <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-sort="version">
+                                    Version <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-sort="ecosystem">
+                                    Ecosystem <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-sort="vulnerabilities">
+                                    Vulnerabilities <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-sort="language">
+                                    Language <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th>Used In</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dependencyTableBody">
+                            <!-- Dependency rows will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                    <div class="text-muted" id="dependencyPaginationInfo">
+                        Showing 0-0 of 0 dependencies
+                    </div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0" id="dependencyPagination">
+                            <!-- Pagination buttons will be populated here -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
         </div>
 
         <!-- Author Analysis Section -->
@@ -235,6 +331,9 @@
                         <h6>Stored Organizations (${organizations.length})</h6>
                     </div>
                     <div class="col-md-6 text-end">
+                        <button class="btn btn-primary btn-sm" onclick="loadAggregatedData()">
+                            <i class="fas fa-layer-group me-2"></i>View Aggregated
+                        </button>
                         <button class="btn btn-outline-primary btn-sm" onclick="exportAllData()">
                             <i class="fas fa-download me-2"></i>Export All
                         </button>
@@ -273,7 +372,7 @@
                             <td><small>${date} ${time}</small></td>
                             <td>
                                 <button class="btn btn-outline-primary btn-sm" onclick="loadOrganizationData('${org.organization}')">
-                                    <i class="fas fa-eye me-1"></i>View Dependencies
+                                    <i class="fas fa-eye me-1"></i>View This Org
                                 </button>
                                 <button class="btn btn-outline-success btn-sm" onclick="restartDependencyAnalysis('${org.organization}')">
                                     <i class="fas fa-redo me-1"></i>Restart Analysis
@@ -299,21 +398,261 @@
             organizationsContent.innerHTML = html;
         }
 
-        // Load organization data for dependency overview
-        window.loadOrganizationData = async function(orgName) {
-            const orgData = await window.storageManager.getFullOrganizationData(orgName);
-            const container = document.getElementById('dependency-overview-page');
+        // Dependency table state
+        let allDependencies = [];
+        let filteredDependencies = [];
+        let currentPage = 1;
+        let pageSize = 25;
+        let sortField = 'name';
+        let sortDirection = 'asc';
+        let sourceMapping = {};
+        
+        // Load aggregated dependency data
+        window.loadAggregatedData = async function() {
+            const aggregatedData = await window.storageManager.getCombinedAggregatedData();
             
-            if (!orgData) {
-                container.innerHTML = '<div class="alert alert-warning">No data found for this organization.</div>';
+            if (!aggregatedData || !aggregatedData.allDependencies) {
+                document.getElementById('dependency-details-section').classList.add('hidden');
                 return;
             }
             
-            // Render dependency/category overview section only
-            container.innerHTML = window.viewManager.generateDependencyOverviewHTML(orgData);
-            if (typeof window.viewManager.addOverviewEventListeners === 'function') {
-                window.viewManager.addOverviewEventListeners();
+            allDependencies = aggregatedData.allDependencies;
+            sourceMapping = aggregatedData.sourceMapping || {};
+            filteredDependencies = [...allDependencies];
+            
+            // Populate filter dropdowns
+            populateFilters();
+            
+            // Show table and render
+            document.getElementById('dependency-details-section').classList.remove('hidden');
+            renderDependencyTable();
+            setupEventListeners();
+        };
+        
+        // Load single organization data
+        window.loadOrganizationData = async function(orgName) {
+            const orgData = await window.storageManager.getFullOrganizationData(orgName);
+            
+            if (!orgData || !orgData.allDependencies) {
+                document.getElementById('dependency-details-section').classList.add('hidden');
+                return;
             }
+            
+            allDependencies = orgData.allDependencies;
+            // Create source mapping for single org
+            sourceMapping = {};
+            allDependencies.forEach(dep => {
+                const key = `${dep.name}@${dep.version}`;
+                sourceMapping[key] = [`${orgData.organization} (org)`];
+            });
+            filteredDependencies = [...allDependencies];
+            
+            // Populate filter dropdowns
+            populateFilters();
+            
+            // Show table and render
+            document.getElementById('dependency-details-section').classList.remove('hidden');
+            renderDependencyTable();
+            setupEventListeners();
+        };
+        
+        function populateFilters() {
+            // Populate ecosystem filter
+            const ecosystems = [...new Set(allDependencies.map(d => d.category?.ecosystem).filter(Boolean))].sort();
+            const ecosystemFilter = document.getElementById('ecosystemFilter');
+            ecosystemFilter.innerHTML = '<option value="">All Ecosystems</option>' +
+                ecosystems.map(e => `<option value="${e}">${e}</option>`).join('');
+            
+            // Populate language filter
+            const languages = [...new Set(allDependencies.map(d => d.category?.language).filter(Boolean))].sort();
+            const languageFilter = document.getElementById('languageFilter');
+            languageFilter.innerHTML = '<option value="">All Languages</option>' +
+                languages.map(l => `<option value="${l}">${l}</option>`).join('');
+        }
+        
+        function setupEventListeners() {
+            // Filter inputs
+            document.getElementById('packageNameFilter').addEventListener('input', applyFilters);
+            document.getElementById('ecosystemFilter').addEventListener('change', applyFilters);
+            document.getElementById('dependencyTypeFilter').addEventListener('change', applyFilters);
+            document.getElementById('vulnerabilityFilter').addEventListener('change', applyFilters);
+            document.getElementById('languageFilter').addEventListener('change', applyFilters);
+            
+            // Page size
+            document.getElementById('dependencyPageSize').addEventListener('change', (e) => {
+                pageSize = parseInt(e.target.value);
+                currentPage = 1;
+                renderDependencyTable();
+            });
+            
+            // Sorting
+            document.querySelectorAll('#dependencyTable th.sortable').forEach(th => {
+                th.addEventListener('click', () => {
+                    const field = th.dataset.sort;
+                    if (sortField === field) {
+                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortField = field;
+                        sortDirection = 'asc';
+                    }
+                    renderDependencyTable();
+                });
+            });
+        }
+        
+        function applyFilters() {
+            const packageName = document.getElementById('packageNameFilter').value.toLowerCase();
+            const ecosystem = document.getElementById('ecosystemFilter').value;
+            const depType = document.getElementById('dependencyTypeFilter').value;
+            const vulnFilter = document.getElementById('vulnerabilityFilter').value;
+            const language = document.getElementById('languageFilter').value;
+            
+            filteredDependencies = allDependencies.filter(dep => {
+                if (packageName && !dep.name.toLowerCase().includes(packageName)) return false;
+                if (ecosystem && dep.category?.ecosystem !== ecosystem) return false;
+                if (depType === 'direct' && dep.type !== 'direct') return false;
+                if (depType === 'transitive' && dep.type === 'direct') return false;
+                if (vulnFilter === 'vulnerable' && (!dep.vulnerabilities || dep.vulnerabilities.length === 0)) return false;
+                if (vulnFilter === 'clean' && dep.vulnerabilities && dep.vulnerabilities.length > 0) return false;
+                if (language && dep.category?.language !== language) return false;
+                return true;
+            });
+            
+            currentPage = 1;
+            renderDependencyTable();
+        }
+        
+        function renderDependencyTable() {
+            // Sort
+            const sorted = [...filteredDependencies].sort((a, b) => {
+                let aVal = a[sortField];
+                let bVal = b[sortField];
+                
+                if (sortField === 'vulnerabilities') {
+                    aVal = a.vulnerabilities?.length || 0;
+                    bVal = b.vulnerabilities?.length || 0;
+                } else if (sortField === 'ecosystem') {
+                    aVal = a.category?.ecosystem || '';
+                    bVal = b.category?.ecosystem || '';
+                } else if (sortField === 'language') {
+                    aVal = a.category?.language || '';
+                    bVal = b.category?.language || '';
+                }
+                
+                aVal = String(aVal || '').toLowerCase();
+                bVal = String(bVal || '').toLowerCase();
+                
+                if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            // Paginate
+            const startIdx = (currentPage - 1) * pageSize;
+            const endIdx = startIdx + pageSize;
+            const pageData = sorted.slice(startIdx, endIdx);
+            
+            // Update count
+            document.getElementById('dependencyCount').textContent = `${filteredDependencies.length} dependencies`;
+            
+            // Render rows
+            const tbody = document.getElementById('dependencyTableBody');
+            if (pageData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No dependencies found</td></tr>';
+            } else {
+                tbody.innerHTML = pageData.map(dep => {
+                    const key = `${dep.name}@${dep.version}`;
+                    const sources = sourceMapping[key] || [];
+                    const vulnCount = dep.vulnerabilities?.length || 0;
+                    const vulnBadge = vulnCount > 0 ? 
+                        `<span class="badge bg-danger">${vulnCount}</span>` : 
+                        `<span class="badge bg-success">0</span>`;
+                    
+                    return `
+                        <tr>
+                            <td><code>${dep.name}</code></td>
+                            <td><code>${dep.version}</code></td>
+                            <td>${dep.category?.ecosystem || 'Unknown'}</td>
+                            <td>${vulnBadge}</td>
+                            <td>${dep.category?.language || 'Unknown'}</td>
+                            <td><span class="badge bg-info">${sources.length} ${sources.length === 1 ? 'repo' : 'repos'}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="showRepoSources('${dep.name}', '${dep.version}')">
+                                    <i class="fas fa-code-branch me-1"></i>Show Repos
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            
+            // Render pagination
+            renderPagination(filteredDependencies.length);
+            
+            // Update sort indicators
+            document.querySelectorAll('#dependencyTable th.sortable i').forEach(i => {
+                i.className = 'fas fa-sort ms-1';
+            });
+            const activeTh = document.querySelector(`#dependencyTable th[data-sort="${sortField}"] i`);
+            if (activeTh) {
+                activeTh.className = `fas fa-sort-${sortDirection === 'asc' ? 'up' : 'down'} ms-1`;
+            }
+        }
+        
+        function renderPagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / pageSize);
+            const paginationInfo = document.getElementById('dependencyPaginationInfo');
+            const startIdx = (currentPage - 1) * pageSize + 1;
+            const endIdx = Math.min(currentPage * pageSize, totalItems);
+            
+            paginationInfo.textContent = `Showing ${startIdx}-${endIdx} of ${totalItems} dependencies`;
+            
+            const pagination = document.getElementById('dependencyPagination');
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>
+            </li>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+            
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>
+            </li>`;
+            
+            pagination.innerHTML = html;
+        }
+        
+        window.changePage = function(page) {
+            currentPage = page;
+            renderDependencyTable();
+        };
+        
+        window.clearDependencyFilters = function() {
+            document.getElementById('packageNameFilter').value = '';
+            document.getElementById('ecosystemFilter').value = '';
+            document.getElementById('dependencyTypeFilter').value = '';
+            document.getElementById('vulnerabilityFilter').value = '';
+            document.getElementById('languageFilter').value = '';
+            applyFilters();
+        };
+        
+        window.showRepoSources = function(packageName, version) {
+            const key = `${packageName}@${version}`;
+            const sources = sourceMapping[key] || [];
+            window.viewManager.showDependencySourcesModal(packageName, version, sources);
         };
 
         // Debug organization data
@@ -458,14 +797,13 @@
             app.startAnalysis();
         };
 
-        // Load the most recent organization by default
+        // Load aggregated view by default
         (async () => {
-            const orgs = await window.storageManager.getOrganizations();
-            if (orgs && orgs.length > 0) {
-                const orgName = orgs[orgs.length - 1].organization;
-                loadOrganizationData(orgName);
+            const storageInfo = await window.storageManager.getStorageInfo();
+            if (storageInfo.organizationsCount > 0 || storageInfo.hasData) {
+                await loadAggregatedData();
             } else {
-                document.getElementById('dependency-overview-page').innerHTML = '<div class="alert alert-info">Please select an organization to view dependency data.</div>';
+                document.getElementById('dependency-details-section').classList.add('hidden');
             }
         })();
     });

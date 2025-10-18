@@ -1,0 +1,48 @@
+# What Changed - Quick Visual Summary
+
+## The Fix (In One Image)
+
+BEFORE:                          AFTER:
+Progress Bar Showed:             Progress Bar Shows:
+┌────────────────────┐          ┌────────────────────┐
+│ 1/4 Phase 1...     │          │ 1/5 Phase 1...     │
+│ 2/4 Phase 2...     │          │ 2/5 Phase 2...     │
+│ 3/4 Phase 3...     │          │ 3/5 Phase 3...     │
+│ 4/4 Complete! ✅   │    →     │ 4/5 Phase 4...     │
+│ 5/5 Phase 5...❓   │          │ 5/5 Phase 5...     │
+└────────────────────┘          │ Complete! ✅       │
+                                └────────────────────┘
+
+User: "Wait, 4/4 but      User: "Clear! 5 phases
+then 5/5? Confusing!"     done sequentially."
+
+## Code Changes (js/app.js)
+
+8 lines changed:
+- "1/4" → "1/5" (2 locations)
+- "2/4" → "2/5" (2 locations)
+- "3/4" → "3/5" (2 locations)
+- "4/4" → "4/5" (2 locations)
+
+## Documentation Changes
+
+- README.md: Added "Automatic 5-Phase Analysis" section
+- index.html: Updated help text
+- STATUS.md: Created (new single source of truth)
+- 13+ old docs: Moved to archive/
+
+## Result
+
+✅ All 5 phases run automatically
+✅ Progress bar shows 1/5, 2/5, 3/5, 4/5, 5/5
+✅ Documentation matches reality
+✅ No user confusion
+
+## Test It
+
+1. Open index.html
+2. Analyze: cyfinoid/keychecker
+3. Watch: Progress should show 1/5 through 5/5
+4. Result: Data on all pages (vuln, license, authors)
+
+That's it! Simple fix, big impact. 🎉

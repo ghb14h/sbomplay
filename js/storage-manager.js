@@ -239,6 +239,255 @@ class StorageManager {
     }
 
     /**
+     * Get combined aggregated data from ALL stored analyses (orgs + single repos)
+     */
+    async getCombinedAggregatedData() {
+        try {
+            await this.init();
+            console.log('📊 Starting combined aggregation of all analyses...');
+            
+            // Get all organization analyses
+            const organizations = await this.getOrganizations();
+            const singleRepos = await this.getAllSingleRepoAnalyses();
+            
+            console.log(`📊 Found ${organizations.length} org analyses and ${singleRepos.length} single repo analyses`);
+            
+            // Initialize aggregated data structure
+            const aggregated = {
+                organization: 'All Analyses (Combined)',
+                allDependencies: [],
+                dependencyMap: new Map(), // For deduplication: "name@version" -> dependency object
+                sourceMapping: {}, // "name@version" -> ["owner/repo", ...]
+                licenseAnalysis: {
+                    totalLicenses: 0,
+                    licensedDependencies: 0,
+                    unlicensedDependencies: 0,
+                    conflicts: [],
+                    highRiskDependencies: [],
+                    dependencies: [],
+                    summary: {
+                        licensedDependencies: 0,
+                        unlicensedDependencies: 0,
+                        categoryBreakdown: {
+                            permissive: 0,
+                            copyleft: 0,
+                            lgpl: 0,
+                            proprietary: 0,
+                            unknown: 0
+                        }
+                    }
+                },
+                vulnerabilityAnalysis: {
+                    totalVulnerabilities: 0,
+                    vulnerableDependencies: [],
+                    severityBreakdown: {
+                        critical: 0,
+                        high: 0,
+                        medium: 0,
+                        low: 0,
+                        unknown: 0
+                    },
+                    summary: {
+                        totalVulnerabilities: 0,
+                        criticalCount: 0,
+                        highCount: 0,
+                        mediumCount: 0,
+                        lowCount: 0
+                    }
+                },
+                statistics: {
+                    totalRepositories: 0,
+                    totalDependencies: 0,
+                    uniqueDependencies: 0
+                }
+            };
+            
+            // Process organization analyses
+            for (const org of organizations) {
+                const orgData = await this.getFullOrganizationData(org.organization);
+                if (!orgData) continue;
+                
+                aggregated.statistics.totalRepositories += orgData.summary?.totalRepositories || 0;
+                
+                // Aggregate dependencies
+                if (orgData.allDependencies && Array.isArray(orgData.allDependencies)) {
+                    for (const dep of orgData.allDependencies) {
+                        const key = `${dep.name}@${dep.version}`;
+                        if (!aggregated.dependencyMap.has(key)) {
+                            aggregated.dependencyMap.set(key, {...dep});
+                        }
+                        
+                        // Track source mapping
+                        if (!aggregated.sourceMapping[key]) {
+                            aggregated.sourceMapping[key] = [];
+                        }
+                        const source = `${org.organization} (org)`;
+                        if (!aggregated.sourceMapping[key].includes(source)) {
+                            aggregated.sourceMapping[key].push(source);
+                        }
+                    }
+                }
+                
+                // Aggregate license data
+                if (orgData.licenseAnalysis) {
+                    const la = orgData.licenseAnalysis;
+                    aggregated.licenseAnalysis.licensedDependencies += la.summary?.licensedDependencies || 0;
+                    aggregated.licenseAnalysis.unlicensedDependencies += la.summary?.unlicensedDependencies || 0;
+                    
+                    if (la.summary?.categoryBreakdown) {
+                        const cb = la.summary.categoryBreakdown;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.permissive += cb.permissive || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.copyleft += cb.copyleft || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.lgpl += cb.lgpl || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.proprietary += cb.proprietary || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.unknown += cb.unknown || 0;
+                    }
+                    
+                    if (la.dependencies) {
+                        aggregated.licenseAnalysis.dependencies.push(...la.dependencies);
+                    }
+                    if (la.highRiskDependencies) {
+                        aggregated.licenseAnalysis.highRiskDependencies.push(...la.highRiskDependencies);
+                    }
+                }
+                
+                // Aggregate vulnerability data
+                if (orgData.vulnerabilityAnalysis) {
+                    const va = orgData.vulnerabilityAnalysis;
+                    aggregated.vulnerabilityAnalysis.totalVulnerabilities += va.summary?.totalVulnerabilities || 0;
+                    aggregated.vulnerabilityAnalysis.summary.criticalCount += va.summary?.criticalCount || 0;
+                    aggregated.vulnerabilityAnalysis.summary.highCount += va.summary?.highCount || 0;
+                    aggregated.vulnerabilityAnalysis.summary.mediumCount += va.summary?.mediumCount || 0;
+                    aggregated.vulnerabilityAnalysis.summary.lowCount += va.summary?.lowCount || 0;
+                    
+                    if (va.severityBreakdown) {
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.critical += va.severityBreakdown.critical || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.high += va.severityBreakdown.high || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.medium += va.severityBreakdown.medium || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.low += va.severityBreakdown.low || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.unknown += va.severityBreakdown.unknown || 0;
+                    }
+                    
+                    if (va.vulnerableDependencies) {
+                        aggregated.vulnerabilityAnalysis.vulnerableDependencies.push(...va.vulnerableDependencies);
+                    }
+                }
+            }
+            
+            // Process single repo analyses
+            for (const repo of singleRepos) {
+                aggregated.statistics.totalRepositories += 1;
+                
+                // Aggregate dependencies from SBOM data
+                if (repo.sbomData && repo.sbomData.allDependencies) {
+                    for (const dep of repo.sbomData.allDependencies) {
+                        const key = `${dep.name}@${dep.version}`;
+                        if (!aggregated.dependencyMap.has(key)) {
+                            aggregated.dependencyMap.set(key, {...dep});
+                        }
+                        
+                        // Track source mapping
+                        if (!aggregated.sourceMapping[key]) {
+                            aggregated.sourceMapping[key] = [];
+                        }
+                        const source = `${repo.owner}/${repo.name} (single repo)`;
+                        if (!aggregated.sourceMapping[key].includes(source)) {
+                            aggregated.sourceMapping[key].push(source);
+                        }
+                    }
+                }
+                
+                // Aggregate license data from single repo
+                if (repo.licenseAnalysis) {
+                    const la = repo.licenseAnalysis;
+                    aggregated.licenseAnalysis.licensedDependencies += la.summary?.licensedDependencies || 0;
+                    aggregated.licenseAnalysis.unlicensedDependencies += la.summary?.unlicensedDependencies || 0;
+                    
+                    if (la.summary?.categoryBreakdown) {
+                        const cb = la.summary.categoryBreakdown;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.permissive += cb.permissive || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.copyleft += cb.copyleft || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.lgpl += cb.lgpl || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.proprietary += cb.proprietary || 0;
+                        aggregated.licenseAnalysis.summary.categoryBreakdown.unknown += cb.unknown || 0;
+                    }
+                    
+                    if (la.dependencies) {
+                        aggregated.licenseAnalysis.dependencies.push(...la.dependencies);
+                    }
+                    if (la.highRiskDependencies) {
+                        aggregated.licenseAnalysis.highRiskDependencies.push(...la.highRiskDependencies);
+                    }
+                }
+                
+                // Aggregate vulnerability data from single repo
+                if (repo.vulnerabilityAnalysis) {
+                    const va = repo.vulnerabilityAnalysis;
+                    aggregated.vulnerabilityAnalysis.totalVulnerabilities += va.summary?.totalVulnerabilities || 0;
+                    aggregated.vulnerabilityAnalysis.summary.criticalCount += va.summary?.criticalCount || 0;
+                    aggregated.vulnerabilityAnalysis.summary.highCount += va.summary?.highCount || 0;
+                    aggregated.vulnerabilityAnalysis.summary.mediumCount += va.summary?.mediumCount || 0;
+                    aggregated.vulnerabilityAnalysis.summary.lowCount += va.summary?.lowCount || 0;
+                    
+                    if (va.severityBreakdown) {
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.critical += va.severityBreakdown.critical || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.high += va.severityBreakdown.high || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.medium += va.severityBreakdown.medium || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.low += va.severityBreakdown.low || 0;
+                        aggregated.vulnerabilityAnalysis.severityBreakdown.unknown += va.severityBreakdown.unknown || 0;
+                    }
+                    
+                    if (va.vulnerableDependencies) {
+                        aggregated.vulnerabilityAnalysis.vulnerableDependencies.push(...va.vulnerableDependencies);
+                    }
+                }
+            }
+            
+            // Convert dependency map to array
+            aggregated.allDependencies = Array.from(aggregated.dependencyMap.values());
+            delete aggregated.dependencyMap; // Clean up temporary map
+            
+            // Update statistics
+            aggregated.statistics.totalDependencies = aggregated.allDependencies.length;
+            aggregated.statistics.uniqueDependencies = aggregated.allDependencies.length;
+            
+            // Update license totals
+            aggregated.licenseAnalysis.summary.licensedDependencies = aggregated.licenseAnalysis.licensedDependencies;
+            aggregated.licenseAnalysis.summary.unlicensedDependencies = aggregated.licenseAnalysis.unlicensedDependencies;
+            
+            // Count unique licenses
+            const uniqueLicenses = new Set();
+            aggregated.licenseAnalysis.dependencies.forEach(dep => {
+                if (dep.license) uniqueLicenses.add(dep.license);
+            });
+            aggregated.licenseAnalysis.totalLicenses = uniqueLicenses.size;
+            
+            // Update vulnerability totals
+            aggregated.vulnerabilityAnalysis.summary.totalVulnerabilities = aggregated.vulnerabilityAnalysis.totalVulnerabilities;
+            
+            console.log(`✅ Aggregated data: ${aggregated.statistics.totalRepositories} repos, ${aggregated.allDependencies.length} unique deps`);
+            
+            return aggregated;
+        } catch (error) {
+            console.error('❌ Failed to get combined aggregated data:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Get dependency source mapping (which repos use which dependencies)
+     */
+    async getDependencySourceMapping() {
+        try {
+            const aggregated = await this.getCombinedAggregatedData();
+            return aggregated ? aggregated.sourceMapping : {};
+        } catch (error) {
+            console.error('❌ Failed to get dependency source mapping:', error);
+            return {};
+        }
+    }
+
+    /**
      * Remove organization data
      */
     async removeOrganizationData(orgName) {

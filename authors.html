@@ -27,8 +27,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-lg-auto">
-                    <a class="nav-link" href="index.html">Organization Analysis</a>
-                    <a class="nav-link" href="singlerepo.html">Single Repository</a>
+                    <a class="nav-link" href="index.html">Analysis</a>
                     <a class="nav-link" href="stats.html">Stats</a>
                     <a class="nav-link" href="license-compliance.html">License</a>
                     <a class="nav-link" href="vuln.html">Vulnerabilities</a>
@@ -205,18 +204,25 @@
             const storageInfo = await window.storageManager.getStorageInfo();
             const organizationsContent = document.getElementById('organizationsContent');
             
-            if (storageInfo.organizationsCount === 0) {
+            // Get both organizations and single repos
+            const organizations = await window.storageManager.getOrganizations();
+            const singleRepos = await window.storageManager.getAllSingleRepoAnalyses();
+            const hasData = organizations.length > 0 || singleRepos.length > 0;
+            
+            if (!hasData) {
                 document.getElementById('organizationsSection').style.display = 'none';
                 document.getElementById('noDataSection').style.display = 'block';
                 return;
             }
-
-            const organizations = await window.storageManager.getOrganizations();
             
             let html = `
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <h6>Stored Organizations (${organizations.length})</h6>
+                        <h6>Stored Analyses</h6>
+                        <p class="text-muted small mb-0">
+                            ${organizations.length} ${organizations.length === 1 ? 'organization' : 'organizations'}, 
+                            ${singleRepos.length} single ${singleRepos.length === 1 ? 'repository' : 'repositories'}
+                        </p>
                     </div>
                     <div class="col-md-6 text-end">
                         <button class="btn btn-outline-primary btn-sm" onclick="exportAllData()">
@@ -274,21 +280,101 @@
                 `;
             }
 
+            // Add single repositories section
+            if (singleRepos.length > 0) {
+                html += `
+                    <h6 class="mt-4 mb-3">Single Repositories</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Repository</th>
+                                    <th>Dependencies</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                singleRepos.forEach(repo => {
+                    const date = new Date(repo.timestamp).toLocaleDateString();
+                    const time = new Date(repo.timestamp).toLocaleTimeString();
+                    const depCount = repo.sbomData?.allDependencies?.length || 0;
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${repo.owner}/${repo.name}</strong></td>
+                            <td><span class="badge bg-success">${depCount}</span></td>
+                            <td><small>${date} ${time}</small></td>
+                            <td>
+                                <button class="btn btn-outline-primary btn-sm" onclick="loadSingleRepoData('${repo.owner}', '${repo.name}')">
+                                    <i class="fas fa-eye me-1"></i>View Authors
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="removeSingleRepoData('${repo.owner}', '${repo.name}')">
+                                    <i class="fas fa-trash me-1"></i>Remove
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
             organizationsContent.innerHTML = html;
         }
 
         // Load organization author data
         window.loadOrganizationData = async function(orgName) {
-            const orgData = await window.storageManager.getFullOrganizationData(orgName);
             const container = document.getElementById('author-analysis-page');
             
-            if (!orgData || !orgData.authorAnalysis) {
-                container.innerHTML = '<div class="alert alert-warning">No author analysis data found for this organization.</div>';
-                return;
-            }
+            // Show loading indicator
+            container.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Loading Author Analysis for ${orgName}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress progress-lg mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 100%">
+                                Loading author data...
+                            </div>
+                        </div>
+                        <p class="text-muted text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Retrieving cached author analysis from storage.
+                        </p>
+                    </div>
+                </div>
+            `;
             
-            // Display author analysis
-            displayAuthorAnalysis(orgData.authorAnalysis, orgName);
+            try {
+                const orgData = await window.storageManager.getFullOrganizationData(orgName);
+                
+                if (!orgData || !orgData.authorAnalysis) {
+                    container.innerHTML = '<div class="alert alert-warning">No author analysis data found for this organization.</div>';
+                    return;
+                }
+                
+                // Display author analysis
+                displayAuthorAnalysis(orgData.authorAnalysis, orgName);
+            } catch (error) {
+                console.error('Error loading organization author data:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load author data: ${error.message}
+                    </div>
+                `;
+            }
         };
 
         // Display author analysis function
@@ -403,16 +489,119 @@
                 const success = window.storageManager.removeOrganizationData(orgName);
                 if (success) {
                     displayOrganizationsOverview();
-                    document.getElementById('author-analysis-page').innerHTML = '<div class="alert alert-info">Please select an organization to view author data.</div>';
+                    document.getElementById('author-analysis-page').innerHTML = '<div class="alert alert-info">Please select an organization or repository to view author data.</div>';
                     
-                    // Check if no organizations left
-                    const storageInfo = window.storageManager.getStorageInfo();
-                    if (storageInfo.organizationsCount === 0) {
+                    // Check if no data left
+                    window.storageManager.getOrganizations().then(orgs => {
+                        window.storageManager.getAllSingleRepoAnalyses().then(repos => {
+                            if (orgs.length === 0 && repos.length === 0) {
+                                document.getElementById('organizationsSection').style.display = 'none';
+                                document.getElementById('noDataSection').style.display = 'block';
+                            }
+                        });
+                    });
+                } else {
+                    alert('Failed to remove data for ' + orgName);
+                }
+            }
+        };
+
+        // Load single repo author data
+        window.loadSingleRepoData = async function(owner, name) {
+            const container = document.getElementById('author-analysis-page');
+            
+            try {
+                const repoData = await window.storageManager.loadSingleRepoAnalysis(owner, name);
+                
+                if (!repoData) {
+                    container.innerHTML = '<div class="alert alert-warning">No data available for this repository.</div>';
+                    return;
+                }
+                
+                // Check if we have pre-analyzed author data from initial analysis
+                if (repoData.authorAnalysis && repoData.authorAnalysis.length > 0) {
+                    console.log(`✅ Using pre-analyzed author data for ${owner}/${name} (${repoData.authorAnalysis.length} authors)`);
+                    displayAuthorAnalysis(repoData.authorAnalysis, `${owner}/${name}`);
+                    return;
+                }
+                
+                // If no pre-analyzed data exists, run the analysis now (for old data)
+                if (!repoData.sbomData || !repoData.sbomData.allDependencies) {
+                    container.innerHTML = '<div class="alert alert-warning">No author data available for this repository.</div>';
+                    return;
+                }
+                
+                // Show loading indicator
+                container.innerHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Analyzing Authors for ${owner}/${name}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress progress-lg mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 100%">
+                                    Fetching author information from package registries...
+                                </div>
+                            </div>
+                            <p class="text-muted text-center">
+                                <i class="fas fa-info-circle me-2"></i>
+                                This may take a moment as we query multiple package registries for author metadata.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                
+                console.log(`⚠️ No pre-analyzed author data found for ${owner}/${name}, running analysis now...`);
+                
+                // Create required services
+                const ecosystemsService = new EcosystemsService();
+                const depsDevService = new DepsDevService();
+                const authorAnalyzer = new AuthorAnalyzer(ecosystemsService, depsDevService, window.storageManager);
+                
+                const allDependencies = repoData.sbomData.allDependencies;
+                
+                // Analyze authors (returns authors array)
+                const authorsArray = await authorAnalyzer.analyzeAuthors(allDependencies, repoData.depsDevAnalysis);
+                const topAuthors = authorAnalyzer.getTopAuthors(authorsArray, 50);
+                
+                // Save the analysis back to storage for next time
+                repoData.authorAnalysis = topAuthors;
+                await window.storageManager.saveSingleRepoAnalysis(owner, name, repoData);
+                console.log(`✅ Author analysis complete and saved for ${owner}/${name}`);
+                
+                // Display the results
+                displayAuthorAnalysis(topAuthors, `${owner}/${name}`);
+            } catch (error) {
+                console.error('Error loading author data:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to analyze authors: ${error.message}
+                    </div>
+                `;
+            }
+        };
+
+        // Remove single repo data
+        window.removeSingleRepoData = async function(owner, name) {
+            if (confirm(`Are you sure you want to remove all data for ${owner}/${name}?`)) {
+                try {
+                    await window.storageManager.deleteSingleRepoAnalysis(owner, name);
+                    displayOrganizationsOverview();
+                    document.getElementById('author-analysis-page').innerHTML = '<div class="alert alert-info">Please select an organization or repository to view author data.</div>';
+                    
+                    // Check if no data left
+                    const orgs = await window.storageManager.getOrganizations();
+                    const repos = await window.storageManager.getAllSingleRepoAnalyses();
+                    if (orgs.length === 0 && repos.length === 0) {
                         document.getElementById('organizationsSection').style.display = 'none';
                         document.getElementById('noDataSection').style.display = 'block';
                     }
-                } else {
-                    alert('Failed to remove data for ' + orgName);
+                } catch (error) {
+                    alert('Failed to remove data for ' + owner + '/' + name);
                 }
             }
         };

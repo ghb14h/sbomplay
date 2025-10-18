@@ -3357,4 +3357,73 @@ class ViewManager {
         // Initial sort
         applyEcosystemFilter();
     }
+    
+    /**
+     * Show dependency sources modal - displays which repos use a specific dependency
+     */
+    showDependencySourcesModal(packageName, version, sources) {
+        // Create modal HTML
+        const modalId = 'dependencySourcesModal';
+        const modalHtml = `
+            <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-code-branch me-2"></i>
+                                Repositories Using ${packageName}@${version}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted mb-3">
+                                This dependency is used in <strong>${sources.length}</strong> ${sources.length === 1 ? 'repository' : 'repositories'}:
+                            </p>
+                            <div class="list-group">
+                                ${sources.map(source => {
+                                    const isOrg = source.includes('(org)');
+                                    const isSingleRepo = source.includes('(single repo)');
+                                    const cleanSource = source.replace(' (org)', '').replace(' (single repo)', '');
+                                    const iconClass = isOrg ? 'fa-building' : 'fa-code-branch';
+                                    const badgeClass = isOrg ? 'bg-primary' : 'bg-success';
+                                    const badgeText = isOrg ? 'Organization' : 'Single Repo';
+                                    
+                                    return `
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas ${iconClass} me-2"></i>
+                                                <code>${cleanSource}</code>
+                                            </div>
+                                            <span class="badge ${badgeClass}">${badgeText}</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if present
+        const existingModal = document.getElementById(modalId);
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById(modalId));
+        modal.show();
+        
+        // Remove modal from DOM when hidden
+        document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
 }

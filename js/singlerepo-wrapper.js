@@ -248,7 +248,7 @@ class SingleRepoAnalyzer {
                 console.warn('⚠️ License compliance analysis failed:', error);
             }
 
-            // Phase 5: Dependency drift analysis (85-95%)
+            // Phase 5: Dependency drift analysis (85-90%)
             this.updateProgress(85, 'Checking for outdated dependencies...');
             
             let driftAnalysis = null;
@@ -267,6 +267,44 @@ class SingleRepoAnalyzer {
                 console.warn('⚠️ Dependency drift analysis failed:', error);
             }
 
+            // Phase 6: Author analysis (90-95%)
+            this.updateProgress(90, 'Analyzing package authors...');
+            
+            let authorAnalysis = null;
+            try {
+                // Get all dependencies for author analysis
+                const allDependencies = this.sbomProcessor.exportData().allDependencies;
+                
+                if (allDependencies && allDependencies.length > 0) {
+                    console.log(`👥 Starting author analysis with ${allDependencies.length} dependencies`);
+                    
+                    // Create author analyzer with required services
+                    if (!this.authorAnalyzer) {
+                        this.authorAnalyzer = new AuthorAnalyzer(
+                            this.ecosystemsService,
+                            this.depsDevService,
+                            this.storageManager
+                        );
+                    }
+                    
+                    // Analyze authors
+                    const authorsArray = await this.authorAnalyzer.analyzeAuthors(
+                        allDependencies,
+                        depsDevAnalysis,
+                        `${owner}/${name}`
+                    );
+                    
+                    // Store the top 50 authors
+                    authorAnalysis = this.authorAnalyzer.getTopAuthors(authorsArray, 50);
+                    
+                    console.log(`✅ Author analysis complete: ${authorsArray.length} unique authors found`);
+                } else {
+                    console.log('No dependencies found for author analysis');
+                }
+            } catch (error) {
+                console.warn('⚠️ Author analysis failed:', error);
+            }
+
             // Generate final results
             this.updateProgress(95, 'Generating analysis results...');
             
@@ -277,6 +315,7 @@ class SingleRepoAnalyzer {
                 vulnerabilityAnalysis: vulnerabilityAnalysis,
                 licenseAnalysis: licenseAnalysis,
                 driftAnalysis: driftAnalysis,
+                authorAnalysis: authorAnalysis,
                 timestamp: new Date().toISOString()
             };
 
@@ -3973,7 +4012,13 @@ class SingleRepoAnalyzer {
     showProgress(show) {
         const progressSection = document.getElementById('progressSection');
         if (progressSection) {
-            progressSection.style.display = show ? 'block' : 'none';
+            if (show) {
+                progressSection.classList.remove('hidden');
+                progressSection.style.display = 'block';
+            } else {
+                progressSection.classList.add('hidden');
+                progressSection.style.display = 'none';
+            }
         }
     }
 

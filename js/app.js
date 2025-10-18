@@ -514,8 +514,8 @@ class SBOMPlayApp {
             const rateLimitInfo = await this.githubClient.getRateLimitInfo();
             this.updateRateLimitInfo(rateLimitInfo);
 
-            // Phase 1: Extract SBOM data (0-25%)
-            this.updateProgress(0, '1/4 Extracting SBOM data...');
+            // Phase 1: Extract SBOM data (0-20%)
+            this.updateProgress(0, '1/5 Extracting SBOM data...');
             const repositories = await this.githubClient.getRepositories(ownerName);
             
             if (repositories.length === 0) {
@@ -541,9 +541,9 @@ class SBOMPlayApp {
                 const repo = repositories[i];
                 const owner = repo.owner.login;
                 const name = repo.name;
-                const progress = (i / repositories.length) * 25; // 0-25%
+                const progress = (i / repositories.length) * 20; // 0-20%
                 
-                this.updateProgress(progress, `1/4 Extracting SBOM from ${owner}/${name}...`);
+                this.updateProgress(progress, `1/5 Extracting SBOM from ${owner}/${name}...`);
                 
                 try {
                     const sbomData = await this.githubClient.fetchSBOM(owner, name);
@@ -607,17 +607,17 @@ class SBOMPlayApp {
                 await this.sleep(100);
             }
 
-            // Phase 2: Transitive dependency extraction (25-50%)
+            // Phase 2: Transitive dependency extraction (20-40%)
             // Check if we have any dependencies to analyze (not just repositories with deps)
             const totalDependencies = this.sbomProcessor.dependencies.size;
             if (totalDependencies > 0) {
-                this.updateProgress(25, '2/4 Extracting transitive dependencies...');
+                this.updateProgress(20, '2/5 Extracting transitive dependencies...');
                 try {
                     const depsDevAnalysis = await this.sbomProcessor.analyzeDepsDevEnrichment(
                         (progress, message) => {
-                            // Map 0-100 progress to 25-50 range
-                            const mappedProgress = 25 + (progress * 0.25);
-                            this.updateProgress(mappedProgress, `2/4 ${message}`);
+                            // Map 0-100 progress to 20-40 range
+                            const mappedProgress = 20 + (progress * 0.20);
+                            this.updateProgress(mappedProgress, `2/5 ${message}`);
                         }
                     );
                     if (depsDevAnalysis) {
@@ -630,15 +630,15 @@ class SBOMPlayApp {
                 console.log('⚠️ No dependencies found to analyze');
             }
 
-            // Phase 3: Vulnerability analysis (50-75%)
+            // Phase 3: Vulnerability analysis (40-60%)
             if (totalDependencies > 0) {
-                this.updateProgress(50, '3/4 Analyzing vulnerabilities...');
+                this.updateProgress(40, '3/5 Analyzing vulnerabilities...');
                 try {
                     const vulnerabilityAnalysis = await this.sbomProcessor.analyzeVulnerabilities(
                         (progress, message) => {
-                            // Map 0-100 progress to 50-75 range
-                            const mappedProgress = 50 + (progress * 0.25);
-                            this.updateProgress(mappedProgress, `3/4 ${message}`);
+                            // Map 0-100 progress to 40-60 range
+                            const mappedProgress = 40 + (progress * 0.20);
+                            this.updateProgress(mappedProgress, `3/5 ${message}`);
                         }
                     );
                     if (vulnerabilityAnalysis) {
@@ -651,15 +651,15 @@ class SBOMPlayApp {
                 console.log('⚠️ No dependencies found for vulnerability analysis');
             }
 
-            // Phase 4: License compliance (75-100%)
+            // Phase 4: License compliance (60-80%)
             if (totalDependencies > 0) {
-                this.updateProgress(75, '4/4 Analyzing license compliance...');
+                this.updateProgress(60, '4/5 Analyzing license compliance...');
                 try {
                     const licenseAnalysis = this.sbomProcessor.analyzeLicenseCompliance(
                         (progress, message) => {
-                            // Map 0-100 progress to 75-100 range
-                            const mappedProgress = 75 + (progress * 0.25);
-                            this.updateProgress(mappedProgress, `4/4 ${message}`);
+                            // Map 0-100 progress to 60-80 range
+                            const mappedProgress = 60 + (progress * 0.20);
+                            this.updateProgress(mappedProgress, `4/5 ${message}`);
                         }
                     );
                     if (licenseAnalysis) {
@@ -672,6 +672,50 @@ class SBOMPlayApp {
                 console.log('⚠️ No dependencies found for license analysis');
             }
 
+            // Phase 5: Author Analysis (80-95%)
+            if (totalDependencies > 0) {
+                try {
+                    this.updateProgress(80, '5/5 Analyzing package authors...');
+                    console.log('👤 Starting author analysis...');
+                    
+                    // Prepare dependencies array with ecosystem information
+                    const dependenciesArray = Array.from(this.sbomProcessor.dependencies.values()).map(dep => ({
+                        name: dep.name,
+                        version: dep.version,
+                        ecosystem: dep.category?.ecosystem || 'Unknown',
+                        isDirect: true, // From SBOM, these are direct dependencies
+                        author: dep.author,
+                        authorDisplayName: dep.authorDisplayName,
+                        authorEmail: dep.authorEmail,
+                        homepage: dep.homepage
+                    }));
+                    
+                    // Run author analysis with progress updates
+                    const authorData = await this.authorAnalyzer.analyzeAuthors(
+                        dependenciesArray,
+                        this.sbomProcessor.depsDevAnalysis, // Transitive data
+                        ownerName,
+                        (progress, message) => {
+                            // Map 0-100 progress to 80-95 range
+                            const mappedProgress = 80 + (progress * 0.15);
+                            this.updateProgress(mappedProgress, `5/5 ${message}`);
+                        }
+                    );
+                    
+                    console.log(`✅ Author analysis complete: ${authorData.length} unique authors found`);
+                    
+                    // Show author analysis section and render data
+                    const authorSection = document.getElementById('authorAnalysisSection');
+                    if (authorSection && window.viewManager) {
+                        authorSection.classList.remove('hidden');
+                        window.viewManager.renderAuthorAnalysis(authorData, 'author-analysis-container');
+                    }
+                } catch (error) {
+                    console.error('❌ Author analysis failed:', error);
+                    // Don't fail the entire analysis if author analysis fails
+                }
+            }
+            
             // Generate final results
             this.updateProgress(95, 'Generating final analysis results...');
             const results = this.sbomProcessor.exportData();
@@ -734,45 +778,6 @@ class SBOMPlayApp {
             // Show deps.dev enrichment summary if available
             if (this.sbomProcessor.depsDevAnalysis) {
                 this.showDepsDevSummary();
-            }
-            
-            // Phase 5: Author Analysis (95-100%)
-            if (totalDependencies > 0) {
-                try {
-                    this.updateProgress(95, '5/5 Analyzing package authors...');
-                    console.log('👤 Starting author analysis...');
-                    
-                    // Prepare dependencies array with ecosystem information
-                    const dependenciesArray = Array.from(this.sbomProcessor.dependencies.values()).map(dep => ({
-                        name: dep.name,
-                        version: dep.version,
-                        ecosystem: dep.category?.ecosystem || 'Unknown',
-                        isDirect: true, // From SBOM, these are direct dependencies
-                        author: dep.author,
-                        authorDisplayName: dep.authorDisplayName,
-                        authorEmail: dep.authorEmail,
-                        homepage: dep.homepage
-                    }));
-                    
-                    // Run author analysis
-                    const authorData = await this.authorAnalyzer.analyzeAuthors(
-                        dependenciesArray,
-                        this.sbomProcessor.depsDevAnalysis, // Transitive data
-                        ownerName
-                    );
-                    
-                    console.log(`✅ Author analysis complete: ${authorData.length} unique authors found`);
-                    
-                    // Show author analysis section and render data
-                    const authorSection = document.getElementById('authorAnalysisSection');
-                    if (authorSection && window.viewManager) {
-                        authorSection.classList.remove('hidden');
-                        window.viewManager.renderAuthorAnalysis(authorData, 'author-analysis-container');
-                    }
-                } catch (error) {
-                    console.error('❌ Author analysis failed:', error);
-                    // Don't fail the entire analysis if author analysis fails
-                }
             }
             
             // Show message about partial data availability

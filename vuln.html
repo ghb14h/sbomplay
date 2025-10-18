@@ -27,8 +27,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-lg-auto">
-                    <a class="nav-link" href="index.html">Organization Analysis</a>
-                    <a class="nav-link" href="singlerepo.html">Single Repository</a>
+                    <a class="nav-link" href="index.html">Analysis</a>
                     <a class="nav-link" href="stats.html">Stats</a>
                     <a class="nav-link" href="license-compliance.html">License</a>
                     <a class="nav-link active" href="vuln.html">Vulnerabilities</a>
@@ -220,6 +219,9 @@
                         <h6>Stored Organizations (${organizations.length})</h6>
                     </div>
                     <div class="col-md-6 text-end">
+                        <button class="btn btn-primary btn-sm" onclick="loadAggregatedData()">
+                            <i class="fas fa-layer-group me-2"></i>View Aggregated
+                        </button>
                         <button class="btn btn-outline-primary btn-sm" onclick="exportAllData()">
                             <i class="fas fa-download me-2"></i>Export All
                         </button>
@@ -258,7 +260,7 @@
                             <td><small>${date} ${time}</small></td>
                             <td>
                                 <button class="btn btn-outline-primary btn-sm" onclick="loadOrganizationData('${org.organization}')">
-                                    <i class="fas fa-eye me-1"></i>View Vulnerabilities
+                                    <i class="fas fa-eye me-1"></i>View This Org
                                 </button>
                                 <button class="btn btn-outline-success btn-sm" onclick="restartVulnerabilityAnalysis('${org.organization}')">
                                     <i class="fas fa-redo me-1"></i>Restart Analysis
@@ -284,6 +286,32 @@
             organizationsContent.innerHTML = html;
         }
 
+        // Load aggregated data from all analyses
+        window.loadAggregatedData = async function() {
+            const aggregatedData = await window.storageManager.getCombinedAggregatedData();
+            const container = document.getElementById('vulnerability-analysis-page');
+            
+            if (!aggregatedData) {
+                container.innerHTML = '<div class="alert alert-info">No analysis data found. Please run an analysis first.</div>';
+                return;
+            }
+            
+            // Show aggregated view header
+            const header = `
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-layer-group me-2"></i>
+                    <strong>Aggregated View:</strong> Showing combined data from all ${aggregatedData.statistics.totalRepositories} repositories (organizations + single repos).
+                </div>
+            `;
+            
+            // Render vulnerability analysis dashboard with aggregated data
+            console.log('📊 Rendering aggregated vulnerability data:', aggregatedData);
+            container.innerHTML = header + window.viewManager.generateVulnerabilityAnalysisHTML(aggregatedData);
+            if (typeof window.viewManager.addOverviewEventListeners === 'function') {
+                window.viewManager.addOverviewEventListeners();
+            }
+        };
+        
         // Load organization data for vulnerability analysis
         window.loadOrganizationData = async function(orgName) {
             const orgData = await window.storageManager.getFullOrganizationData(orgName);
@@ -294,8 +322,20 @@
                 return;
             }
             
+            // Show single org view header
+            const header = `
+                <div class="alert alert-primary mb-3">
+                    <i class="fas fa-building me-2"></i>
+                    <strong>Single Organization View:</strong> Showing data for <strong>${orgData.organization}</strong> only.
+                    <button class="btn btn-sm btn-outline-primary float-end" onclick="loadAggregatedData()">
+                        <i class="fas fa-layer-group me-1"></i>View All (Aggregated)
+                    </button>
+                </div>
+            `;
+            
             // Render full vulnerability analysis dashboard
-            container.innerHTML = window.viewManager.generateVulnerabilityAnalysisHTML(orgData);
+            console.log('📊 Rendering single org vulnerability data for:', orgName);
+            container.innerHTML = header + window.viewManager.generateVulnerabilityAnalysisHTML(orgData);
             if (typeof window.viewManager.addOverviewEventListeners === 'function') {
                 window.viewManager.addOverviewEventListeners();
             }
@@ -452,14 +492,13 @@
             }
         };
 
-        // Load the most recent organization by default
+        // Load aggregated view by default
         (async () => {
-            const orgs = await window.storageManager.getOrganizations();
-            if (orgs && orgs.length > 0) {
-                const orgName = orgs[orgs.length - 1].organization;
-                await loadOrganizationData(orgName);
+            const storageInfo = await window.storageManager.getStorageInfo();
+            if (storageInfo.organizationsCount > 0 || storageInfo.hasData) {
+                await loadAggregatedData();
             } else {
-                document.getElementById('vulnerability-analysis-page').innerHTML = '<div class="alert alert-info">Please select an organization to view vulnerability data.</div>';
+                document.getElementById('vulnerability-analysis-page').innerHTML = '<div class="alert alert-info">No analysis data found. Please run an analysis first.</div>';
             }
         })();
     });

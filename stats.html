@@ -27,8 +27,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-lg-auto">
-                    <a class="nav-link" href="index.html">Organization Analysis</a>
-                    <a class="nav-link" href="singlerepo.html">Single Repository</a>
+                    <a class="nav-link" href="index.html">Analysis</a>
                     <a class="nav-link active" href="stats.html">Stats</a>
                     <a class="nav-link" href="license-compliance.html">License</a>
                     <a class="nav-link" href="vuln.html">Vulnerabilities</a>
@@ -222,8 +221,13 @@
                 const storageInfo = await this.storageManager.getStorageInfo();
                 console.log('🔍 Stats Page - Storage Info:', storageInfo);
                 
-                if (storageInfo.organizationsCount === 0) {
-                    console.log('🔍 Stats Page - No organizations found, showing no data section');
+                // Check if we have any data (organizations OR single repos)
+                const organizations = await this.storageManager.getOrganizations();
+                const singleRepos = await this.storageManager.getAllSingleRepoAnalyses();
+                const hasData = organizations.length > 0 || singleRepos.length > 0;
+                
+                if (!hasData) {
+                    console.log('🔍 Stats Page - No data found, showing no data section');
                     document.getElementById('dashboardOverview').style.display = 'none';
                     document.getElementById('statsCards').style.display = 'none';
                     document.getElementById('noDataSection').style.display = 'block';
@@ -235,16 +239,18 @@
                 document.getElementById('statsCards').style.display = 'block';
                 document.getElementById('noDataSection').style.display = 'none';
 
-                // Load combined data
-                const combinedData = await this.storageManager.getCombinedData();
-                console.log('🔍 Stats Page - Combined Data:', combinedData);
+                // Load aggregated data (includes both orgs and single repos)
+                const aggregatedData = await this.storageManager.getCombinedAggregatedData();
+                console.log('🔍 Stats Page - Aggregated Data:', aggregatedData);
                 
-                if (combinedData) {
-                    console.log('🔍 Stats Page - Displaying dashboard with data');
-                    this.displayDashboardOverview(combinedData);
-                    this.displayStatsCards(combinedData);
+                if (aggregatedData) {
+                    console.log('🔍 Stats Page - Displaying dashboard with aggregated data');
+                    // Wrap in data property to match dashboard expectations
+                    const wrappedData = { data: aggregatedData };
+                    this.displayDashboardOverview(wrappedData);
+                    this.displayStatsCards(wrappedData);
                 } else {
-                    console.log('🔍 Stats Page - No combined data available, showing no data message');
+                    console.log('🔍 Stats Page - No aggregated data available, showing no data message');
                     this.showNoDataMessage();
                 }
             }
